@@ -1,0 +1,11 @@
+{
+  "name": "games.breadknife.fireanimation.unity",
+  "version": "1.0.0",
+  "displayName": "Fire Animation",
+  "author": {
+    "name": "breadknife games",
+    "email": "support@breadknife.games",
+    "url": "breadknife.games"
+  },
+  "type": "library"
+}

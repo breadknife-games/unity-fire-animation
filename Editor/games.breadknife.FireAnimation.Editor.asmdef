@@ -1,0 +1,18 @@
+{
+    "name": "games.breadknife.FireAnimation.Editor",
+    "rootNamespace": "FireAnimation",
+    "references": [
+        "FireAnimation.PsdPlugin"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_EDITOR"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
