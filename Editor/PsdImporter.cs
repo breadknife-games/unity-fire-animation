@@ -18,7 +18,8 @@ namespace FireAnimation
         [SerializeField] private TextureWrapMode wrapMode = TextureWrapMode.Clamp;
         [SerializeField] private float framesPerSecond = 12f;
 
-        [field: SerializeField] internal ImportMetadata Metadata { get; private set; }
+        [SerializeField] internal ImportMetadata Metadata;
+        [SerializeField] private List<AnimationSettings> animationSettings = new List<AnimationSettings>();
 
         public override void OnImportAsset(AssetImportContext ctx)
         {
@@ -39,7 +40,10 @@ namespace FireAnimation
                 var animations = parser.ParsePsd(psdFile, psdFileName);
                 parser.ResolveLayersFromDocument(animations, document);
 
-                Metadata = new ImportMetadata { Animations = animations };
+                if (Metadata == null)
+                    Metadata = new ImportMetadata();
+                Metadata.Animations = animations;
+                InitializeAnimationSettings(animations);
                 GenerateAnimationAssets(ctx, animations, document.width, document.height);
             }
             catch (Exception e)
@@ -81,7 +85,37 @@ namespace FireAnimation
             ctx.SetMainObject(mainAsset);
 
             IconHelper.SetPsdIcon(mainAsset);
-            AnimationGenerator.GenerateUnityAnimations(ctx, mainAsset, framesPerSecond);
+            AnimationGenerator.GenerateUnityAnimations(ctx, mainAsset, animationSettings, framesPerSecond);
+        }
+
+        private void InitializeAnimationSettings(List<SpriteAnimation> animations)
+        {
+            var existingSettings = new Dictionary<string, AnimationSettings>();
+            foreach (var setting in animationSettings)
+            {
+                if (!string.IsNullOrEmpty(setting.AnimationName))
+                    existingSettings[setting.AnimationName] = setting;
+            }
+
+            var newSettings = new List<AnimationSettings>();
+            foreach (var animation in animations)
+            {
+                if (existingSettings.TryGetValue(animation.Name, out var existing))
+                {
+                    newSettings.Add(existing);
+                }
+                else
+                {
+                    newSettings.Add(new AnimationSettings
+                    {
+                        AnimationName = animation.Name,
+                        FramesPerSecond = -1f, // Use default
+                        LoopTime = true
+                    });
+                }
+            }
+
+            animationSettings = newSettings;
         }
 
         private FireAnimationAsset.AnimationData GenerateAnimationWithTextures(

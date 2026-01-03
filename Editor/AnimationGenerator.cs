@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using UnityEditor;
 using UnityEditor.AssetImporters;
@@ -12,10 +13,21 @@ namespace FireAnimation
         public static void GenerateUnityAnimations(
             AssetImportContext ctx,
             FireAnimationAsset mainAsset,
-            float framesPerSecond)
+            List<AnimationSettings> animationSettings,
+            float defaultFps)
         {
             if (mainAsset.Animations == null || mainAsset.Animations.Length == 0)
                 return;
+
+            var settingsDict = new Dictionary<string, AnimationSettings>();
+            if (animationSettings != null)
+            {
+                foreach (var setting in animationSettings)
+                {
+                    if (!string.IsNullOrEmpty(setting.AnimationName))
+                        settingsDict[setting.AnimationName] = setting;
+                }
+            }
 
             var animationClips = new List<AnimationClip>();
             var clipNames = new List<string>();
@@ -25,7 +37,20 @@ namespace FireAnimation
                 if (animData.Sprites == null || animData.Sprites.Length == 0)
                     continue;
 
-                var clip = CreateAnimationClip(animData.Name, animData.Sprites, framesPerSecond);
+                AnimationSettings settings = null;
+                if (!settingsDict.TryGetValue(animData.Name, out settings))
+                {
+                    settings = new AnimationSettings
+                    {
+                        AnimationName = animData.Name,
+                        FramesPerSecond = -1f, // Use default
+                        LoopTime = true
+                    };
+                }
+
+                // Use default FPS if override is not set (FramesPerSecond < 0)
+                float fpsToUse = settings.FramesPerSecond >= 0f ? settings.FramesPerSecond : defaultFps;
+                var clip = CreateAnimationClip(animData.Name, animData.Sprites, fpsToUse, settings.LoopTime);
                 if (clip != null)
                 {
                     string clipId = $"{animData.Name}_AnimationClip";
@@ -44,7 +69,7 @@ namespace FireAnimation
                 animationClips);
         }
 
-        private static AnimationClip CreateAnimationClip(string animationName, Sprite[] sprites, float fps)
+        private static AnimationClip CreateAnimationClip(string animationName, Sprite[] sprites, float fps, bool loopTime)
         {
             if (sprites == null || sprites.Length == 0)
                 return null;
@@ -75,7 +100,7 @@ namespace FireAnimation
             AnimationUtility.SetObjectReferenceCurve(clip, binding, keyframes);
 
             var clipSettings = AnimationUtility.GetAnimationClipSettings(clip);
-            clipSettings.loopTime = true;
+            clipSettings.loopTime = loopTime;
             AnimationUtility.SetAnimationClipSettings(clip, clipSettings);
 
             return clip;
