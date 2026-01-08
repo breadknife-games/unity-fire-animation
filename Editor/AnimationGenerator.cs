@@ -34,20 +34,17 @@ namespace FireAnimation
                 .GroupBy(a => a.Color)
                 .ToList();
 
-            string baseName = Path.GetFileNameWithoutExtension(ctx.assetPath);
-            int groupIndex = 0;
+            var baseName = Path.GetFileNameWithoutExtension(ctx.assetPath);
 
             foreach (var group in animationsByColor)
             {
                 var animations = group.ToList();
                 var name = animations.First().Name.Split("_").Last();
-
-                string controllerName = animationsByColor.Count > 1
+                var controllerName = animationsByColor.Count > 1
                     ? $"{baseName}_{name}"
                     : baseName;
 
                 CreateAssetsForGroup(ctx, controllerName, animations, settingsDict, defaultFps);
-                groupIndex++;
             }
         }
 
@@ -69,8 +66,7 @@ namespace FireAnimation
                 if (firstSprite == null)
                     firstSprite = animData.Sprites[0];
 
-                AnimationSettings settings = null;
-                if (!settingsDict.TryGetValue(animData.Name, out settings))
+                if (!settingsDict.TryGetValue(animData.Name, out var settings))
                 {
                     settings = new AnimationSettings
                     {
@@ -80,7 +76,7 @@ namespace FireAnimation
                     };
                 }
 
-                float fpsToUse = settings.FramesPerSecond >= 0f ? settings.FramesPerSecond : defaultFps;
+                var fpsToUse = settings.FramesPerSecond >= 0f ? settings.FramesPerSecond : defaultFps;
                 var clip = CreateAnimationClip(animData.Name, animData.Sprites, fpsToUse, settings.LoopTime);
                 if (clip != null)
                 {
@@ -99,14 +95,17 @@ namespace FireAnimation
             }
         }
 
-        private static AnimationClip CreateAnimationClip(string animationName, Sprite[] sprites, float fps, bool loopTime)
+        private static AnimationClip CreateAnimationClip(string animationName, Sprite[] sprites, float fps,
+            bool loopTime)
         {
             if (sprites == null || sprites.Length == 0)
                 return null;
 
-            var clip = new AnimationClip();
-            clip.name = animationName;
-            clip.frameRate = fps;
+            var clip = new AnimationClip
+            {
+                name = animationName,
+                frameRate = fps
+            };
 
             var binding = new EditorCurveBinding
             {
@@ -115,10 +114,10 @@ namespace FireAnimation
                 propertyName = "m_Sprite"
             };
 
-            float frameTime = 1f / fps;
+            var frameTime = 1f / fps;
             var keyframes = new ObjectReferenceKeyframe[sprites.Length];
 
-            for (int i = 0; i < sprites.Length; i++)
+            for (var i = 0; i < sprites.Length; i++)
             {
                 keyframes[i] = new ObjectReferenceKeyframe
                 {
@@ -175,8 +174,7 @@ namespace FireAnimation
             return controller;
         }
 
-        private static GameObject CreatePrefab(
-            AssetImportContext ctx,
+        private static void CreatePrefab(AssetImportContext ctx,
             string prefabName,
             AnimatorController controller,
             Sprite defaultSprite)
@@ -190,8 +188,6 @@ namespace FireAnimation
             animator.runtimeAnimatorController = controller;
 
             ctx.AddObjectToAsset($"{prefabName}_Prefab", prefab);
-
-            return prefab;
         }
     }
 }

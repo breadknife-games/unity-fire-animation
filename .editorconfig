@@ -1,0 +1,22 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+
+[*.cs]
+resharper_check_namespace_highlighting = none
+
+resharper_suggest_var_or_type_simple_types_highlighting=warning
+resharper_suggest_var_or_type_elsewhere_highlighting=warning
+resharper_suggest_var_or_type_built_in_types_highlighting=warning
+
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel_case
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case

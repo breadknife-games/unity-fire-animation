@@ -1,3 +1,5 @@
+// ReSharper disable UnusedMember.Global
+
 namespace FireAnimation
 {
     public enum LayerColor

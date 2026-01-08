@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using PDNWrapper;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor.AssetImporters;
@@ -37,9 +36,9 @@ namespace FireAnimation
             int documentWidth,
             int documentHeight)
         {
-            int maxWidth = 0;
-            int maxHeight = 0;
-            int frameCount = 0;
+            var maxWidth = 0;
+            var maxHeight = 0;
+            var frameCount = 0;
 
             void CheckFrameDimensions(AnimationFrame frame)
             {
@@ -113,9 +112,9 @@ namespace FireAnimation
                         frame.BitmapLayers,
                         documentWidth,
                         documentHeight,
-                        out int width,
-                        out int height,
-                        out Vector2 pivotOffset);
+                        out var width,
+                        out var height,
+                        out var pivotOffset);
 
                     frameData.Add(new FrameBufferData
                     {
@@ -126,8 +125,8 @@ namespace FireAnimation
                     });
                 }
 
-                int atlasWidth = dimensions.MaxWidth * dimensions.FrameCount;
-                int atlasHeight = dimensions.MaxHeight;
+                var atlasWidth = dimensions.MaxWidth * dimensions.FrameCount;
+                var atlasHeight = dimensions.MaxHeight;
                 var atlasBuffer = new NativeArray<Color32>(atlasWidth * atlasHeight, Allocator.Temp);
 
                 try
@@ -135,48 +134,50 @@ namespace FireAnimation
                     unsafe
                     {
                         var ptr = (Color32*)atlasBuffer.GetUnsafePtr();
-                        for (int i = 0; i < atlasBuffer.Length; i++)
+                        for (var i = 0; i < atlasBuffer.Length; i++)
                             ptr[i] = new Color32(0, 0, 0, 0);
                     }
 
-                    for (int frameIndex = 0; frameIndex < frameData.Count; frameIndex++)
+                    for (var frameIndex = 0; frameIndex < frameData.Count; frameIndex++)
                     {
                         var data = frameData[frameIndex];
                         if (data.Width == 0 || data.Height == 0)
                             continue;
 
-                        int offsetX = frameIndex * dimensions.MaxWidth;
-                        int padX = (dimensions.MaxWidth - data.Width) / 2;
-                        int padY = (dimensions.MaxHeight - data.Height) / 2;
+                        var offsetX = frameIndex * dimensions.MaxWidth;
+                        var padX = (dimensions.MaxWidth - data.Width) / 2;
+                        var padY = (dimensions.MaxHeight - data.Height) / 2;
 
                         unsafe
                         {
                             var srcPtr = (Color32*)data.Buffer.GetUnsafeReadOnlyPtr();
                             var dstPtr = (Color32*)atlasBuffer.GetUnsafePtr();
 
-                            for (int y = 0; y < data.Height; y++)
+                            for (var y = 0; y < data.Height; y++)
                             {
-                                for (int x = 0; x < data.Width; x++)
+                                for (var x = 0; x < data.Width; x++)
                                 {
-                                    int srcIndex = y * data.Width + x;
-                                    int dstX = offsetX + padX + x;
-                                    int dstY = padY + y;
-                                    int dstIndex = dstY * atlasWidth + dstX;
+                                    var srcIndex = y * data.Width + x;
+                                    var dstX = offsetX + padX + x;
+                                    var dstY = padY + y;
+                                    var dstIndex = dstY * atlasWidth + dstX;
                                     dstPtr[dstIndex] = srcPtr[srcIndex];
                                 }
                             }
                         }
                     }
 
-                    string textureTypeName = TextureTypeHelper.GetDisplayName(animTexture.Type);
-                    var texture = new Texture2D(atlasWidth, atlasHeight, TextureFormat.RGBA32, false);
-                    texture.name = $"{animationName}_{textureTypeName}";
-                    texture.filterMode = filterMode;
-                    texture.wrapMode = wrapMode;
+                    var textureTypeName = TextureTypeHelper.GetDisplayName(animTexture.Type);
+                    var texture = new Texture2D(atlasWidth, atlasHeight, TextureFormat.RGBA32, false)
+                    {
+                        name = $"{animationName}_{textureTypeName}",
+                        filterMode = filterMode,
+                        wrapMode = wrapMode
+                    };
                     texture.SetPixelData(atlasBuffer, 0);
                     texture.Apply(false, true);
 
-                    string textureId = $"{animationName}_{textureTypeName}_Texture";
+                    var textureId = $"{animationName}_{textureTypeName}_Texture";
                     ctx.AddObjectToAsset(textureId, texture);
 
                     return new TextureAtlasResult
@@ -193,10 +194,10 @@ namespace FireAnimation
             }
             finally
             {
-                foreach (var data in frameData)
+                for (var i = 0; i < frameData.Count; i++)
                 {
-                    if (data.Buffer.IsCreated)
-                        data.Buffer.Dispose();
+                    if (frameData[i].Buffer.IsCreated)
+                        frameData[i].Buffer.Dispose();
                 }
             }
         }

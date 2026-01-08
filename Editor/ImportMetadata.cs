@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using PDNWrapper;
-using UnityEngine;
 
 namespace FireAnimation
 {
@@ -39,8 +38,7 @@ namespace FireAnimation
     {
         public List<int> LayerIDs = new List<int>();
 
-        [NonSerialized]
-        internal List<BitmapLayer> BitmapLayers;
+        [NonSerialized] internal List<BitmapLayer> BitmapLayers;
     }
 
     [Serializable]
@@ -49,7 +47,5 @@ namespace FireAnimation
         public string AnimationName;
         public float FramesPerSecond = -1f;
         public bool LoopTime = true;
-
-        public bool HasFpsOverride => FramesPerSecond >= 0f;
     }
 }

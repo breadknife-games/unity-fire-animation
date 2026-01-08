@@ -8,7 +8,7 @@ namespace FireAnimation
     {
         public static void SetPsdIcon(FireAnimationAsset asset)
         {
-            Texture2D icon = LoadCustomIcon();
+            var icon = LoadCustomIcon();
 
             if (icon == null)
                 icon = EditorGUIUtility.FindTexture("ScriptableObject Icon");
@@ -19,10 +19,10 @@ namespace FireAnimation
 
         private static Texture2D LoadCustomIcon()
         {
-            string[] guids = AssetDatabase.FindAssets("PsdIcon t:Texture2D");
-            foreach (string guid in guids)
+            var guids = AssetDatabase.FindAssets("PsdIcon t:Texture2D");
+            foreach (var guid in guids)
             {
-                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                var assetPath = AssetDatabase.GUIDToAssetPath(guid);
                 if (assetPath.EndsWith("PsdIcon.png", StringComparison.OrdinalIgnoreCase))
                 {
                     var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
@@ -30,6 +30,7 @@ namespace FireAnimation
                         return icon;
                 }
             }
+
             return null;
         }
     }

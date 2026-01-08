@@ -27,13 +27,13 @@ namespace FireAnimation
             unsafe
             {
                 var ptr = (Color32*)outputBuffer.GetUnsafePtr();
-                for (int i = 0; i < outputBuffer.Length; i++)
+                for (var i = 0; i < outputBuffer.Length; i++)
                 {
                     ptr[i] = new Color32(0, 0, 0, 0);
                 }
             }
 
-            for (int i = layers.Count - 1; i >= 0; i--)
+            for (var i = layers.Count - 1; i >= 0; i--)
             {
                 var layer = layers[i];
                 if (layer == null || layer.Surface == null || layer.IsEmpty)
@@ -76,16 +76,16 @@ namespace FireAnimation
                 var srcPtr = (Color32*)fullBuffer.GetUnsafeReadOnlyPtr();
                 var dstPtr = (Color32*)croppedBuffer.GetUnsafePtr();
 
-                for (int y = 0; y < outputHeight; y++)
+                for (var y = 0; y < outputHeight; y++)
                 {
-                    int srcY = bounds.y + (outputHeight - 1 - y);
-                    int dstY = y;
+                    var srcY = bounds.y + (outputHeight - 1 - y);
+                    var dstY = y;
 
-                    for (int x = 0; x < outputWidth; x++)
+                    for (var x = 0; x < outputWidth; x++)
                     {
-                        int srcX = bounds.x + x;
-                        int srcIndex = srcY * documentWidth + srcX;
-                        int dstIndex = dstY * outputWidth + x;
+                        var srcX = bounds.x + x;
+                        var srcIndex = srcY * documentWidth + srcX;
+                        var dstIndex = dstY * outputWidth + x;
 
                         dstPtr[dstIndex] = srcPtr[srcIndex];
                     }
@@ -97,12 +97,12 @@ namespace FireAnimation
 
         public static RectInt CalculateMergedBounds(IReadOnlyList<BitmapLayer> layers)
         {
-            int minX = int.MaxValue;
-            int minY = int.MaxValue;
-            int maxX = int.MinValue;
-            int maxY = int.MinValue;
+            var minX = int.MaxValue;
+            var minY = int.MaxValue;
+            var maxX = int.MinValue;
+            var maxY = int.MinValue;
 
-            bool hasValidLayer = false;
+            var hasValidLayer = false;
 
             foreach (var layer in layers)
             {
@@ -131,40 +131,40 @@ namespace FireAnimation
         {
             var layerRect = layer.documentRect;
             var surface = layer.Surface;
-            float opacity = layer.Opacity / 255f;
+            var opacity = layer.Opacity / 255f;
 
             var srcPtr = (Color32*)surface.color.GetUnsafeReadOnlyPtr();
             var dstPtr = (Color32*)output.GetUnsafePtr();
 
-            int layerWidth = surface.width;
-            int layerHeight = surface.height;
+            var layerWidth = surface.width;
+            var layerHeight = surface.height;
 
-            for (int ly = 0; ly < layerHeight; ly++)
+            for (var ly = 0; ly < layerHeight; ly++)
             {
-                int docY = layerRect.Y + ly;
+                var docY = layerRect.Y + ly;
                 if (docY < 0 || docY >= documentHeight)
                     continue;
 
-                for (int lx = 0; lx < layerWidth; lx++)
+                for (var lx = 0; lx < layerWidth; lx++)
                 {
-                    int docX = layerRect.X + lx;
+                    var docX = layerRect.X + lx;
                     if (docX < 0 || docX >= documentWidth)
                         continue;
 
-                    int srcIndex = ly * layerWidth + lx;
-                    int dstIndex = docY * documentWidth + docX;
+                    var srcIndex = ly * layerWidth + lx;
+                    var dstIndex = docY * documentWidth + docX;
 
-                    Color32 src = srcPtr[srcIndex];
-                    Color32 dst = dstPtr[dstIndex];
+                    var src = srcPtr[srcIndex];
+                    var dst = dstPtr[dstIndex];
 
-                    float srcAlpha = (src.a / 255f) * opacity;
-                    float dstAlpha = dst.a / 255f;
-                    float outAlpha = srcAlpha + dstAlpha * (1f - srcAlpha);
+                    var srcAlpha = (src.a / 255f) * opacity;
+                    var dstAlpha = dst.a / 255f;
+                    var outAlpha = srcAlpha + dstAlpha * (1f - srcAlpha);
 
                     if (outAlpha > 0f)
                     {
-                        float srcContrib = srcAlpha / outAlpha;
-                        float dstContrib = dstAlpha * (1f - srcAlpha) / outAlpha;
+                        var srcContrib = srcAlpha / outAlpha;
+                        var dstContrib = dstAlpha * (1f - srcAlpha) / outAlpha;
 
                         dstPtr[dstIndex] = new Color32(
                             (byte)(src.r * srcContrib + dst.r * dstContrib),

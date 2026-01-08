@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEngine;
@@ -7,28 +6,27 @@ using UnityEngine;
 namespace FireAnimation
 {
     [CustomEditor(typeof(PsdImporter))]
+    // ReSharper disable once UnusedMember.Global
     public class PsdImporterEditor : ScriptedImporterEditor
     {
-        private SerializedProperty m_PixelsPerUnit;
-        private SerializedProperty m_FilterMode;
-        private SerializedProperty m_SpriteMeshType;
-        private SerializedProperty m_WrapMode;
-        private SerializedProperty m_FramesPerSecond;
-        private SerializedProperty m_AnimationSettings;
-        private SerializedProperty m_Metadata;
+        private SerializedProperty _pixelsPerUnit;
+        private SerializedProperty _filterMode;
+        private SerializedProperty _spriteMeshType;
+        private SerializedProperty _wrapMode;
+        private SerializedProperty _framesPerSecond;
+        private SerializedProperty _animationSettings;
 
-        private Dictionary<string, bool> m_FoldoutStates = new Dictionary<string, bool>();
+        private readonly Dictionary<string, bool> _foldoutStates = new Dictionary<string, bool>();
 
         public override void OnEnable()
         {
             base.OnEnable();
-            m_PixelsPerUnit = serializedObject.FindProperty("pixelsPerUnit");
-            m_FilterMode = serializedObject.FindProperty("filterMode");
-            m_SpriteMeshType = serializedObject.FindProperty("spriteMeshType");
-            m_WrapMode = serializedObject.FindProperty("wrapMode");
-            m_FramesPerSecond = serializedObject.FindProperty("framesPerSecond");
-            m_AnimationSettings = serializedObject.FindProperty("animationSettings");
-            m_Metadata = serializedObject.FindProperty("Metadata");
+            _pixelsPerUnit = serializedObject.FindProperty("pixelsPerUnit");
+            _filterMode = serializedObject.FindProperty("filterMode");
+            _spriteMeshType = serializedObject.FindProperty("spriteMeshType");
+            _wrapMode = serializedObject.FindProperty("wrapMode");
+            _framesPerSecond = serializedObject.FindProperty("framesPerSecond");
+            _animationSettings = serializedObject.FindProperty("animationSettings");
         }
 
         public override void OnInspectorGUI()
@@ -36,27 +34,29 @@ namespace FireAnimation
             serializedObject.Update();
 
             EditorGUILayout.LabelField("Sprite Settings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(m_PixelsPerUnit, new GUIContent("Pixels Per Unit"));
-            EditorGUILayout.PropertyField(m_SpriteMeshType, new GUIContent("Mesh Type"));
+            EditorGUILayout.PropertyField(_pixelsPerUnit, new GUIContent("Pixels Per Unit"));
+            EditorGUILayout.PropertyField(_spriteMeshType, new GUIContent("Mesh Type"));
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Default Animation Settings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(m_FramesPerSecond, new GUIContent("Default Frames Per Second"));
+            EditorGUILayout.PropertyField(_framesPerSecond, new GUIContent("Default Frames Per Second"));
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Animations", EditorStyles.boldLabel);
 
             var importer = (PsdImporter)target;
-            List<AnimationInfo> animationInfos = GetAnimationInfos(importer);
-            if (animationInfos != null && animationInfos.Count > 0)
+            var animationInfos = GetAnimationInfos(importer);
+            if (animationInfos is { Count: > 0 })
                 DrawAnimationsList(animationInfos);
             else
-                EditorGUILayout.HelpBox("No animations found. Import the PSD file to see animations.", MessageType.Info);
+                EditorGUILayout.HelpBox("No animations found. Import the PSD file to see animations.",
+                    MessageType.Info);
+
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Advanced", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(m_WrapMode, new GUIContent("Wrap Mode"));
-            EditorGUILayout.PropertyField(m_FilterMode, new GUIContent("Filter Mode"));
+            EditorGUILayout.PropertyField(_wrapMode, new GUIContent("Wrap Mode"));
+            EditorGUILayout.PropertyField(_filterMode, new GUIContent("Filter Mode"));
 
             serializedObject.ApplyModifiedProperties();
 
@@ -72,49 +72,45 @@ namespace FireAnimation
 
         private List<AnimationInfo> GetAnimationInfos(PsdImporter importer)
         {
-            if (importer == null) return null;
+            if (importer.Metadata is not { Animations: { Count: > 0 } }) return null;
 
-            if (importer.Metadata != null && importer.Metadata.Animations != null && importer.Metadata.Animations.Count > 0)
+            var infos = new List<AnimationInfo>();
+            foreach (var anim in importer.Metadata.Animations)
             {
-                var infos = new List<AnimationInfo>();
-                foreach (var anim in importer.Metadata.Animations)
+                var frameCount = 0;
+                var secondaryTextures = new List<string>();
+
+                foreach (var texture in anim.Textures)
                 {
-                    int frameCount = 0;
-                    var secondaryTextures = new List<string>();
-
-                    foreach (var texture in anim.Textures)
+                    if (texture.Type == TextureType.Albedo)
                     {
-                        if (texture.Type == TextureType.Albedo)
-                        {
-                            frameCount = texture.Frames != null ? texture.Frames.Count : 0;
-                        }
-                        else if (texture.Type != TextureType.Unknown)
-                        {
-                            secondaryTextures.Add(texture.Name);
-                        }
+                        frameCount = texture.Frames?.Count ?? 0;
                     }
-
-                    infos.Add(new AnimationInfo
+                    else if (texture.Type != TextureType.Unknown)
                     {
-                        Name = anim.Name,
-                        FrameCount = frameCount,
-                        SecondaryTextures = secondaryTextures
-                    });
+                        secondaryTextures.Add(texture.Name);
+                    }
                 }
-                return infos;
+
+                infos.Add(new AnimationInfo
+                {
+                    Name = anim.Name,
+                    FrameCount = frameCount,
+                    SecondaryTextures = secondaryTextures
+                });
             }
 
-            return null;
+            return infos;
         }
 
         private void DrawAnimationsList(List<AnimationInfo> animationInfos)
         {
             var settingsDict = new Dictionary<string, SerializedProperty>();
-            if (m_AnimationSettings != null && m_AnimationSettings.isArray)
+            if (_animationSettings is { isArray: true })
             {
-                for (int i = 0; i < m_AnimationSettings.arraySize; i++)
+                for (var i = 0; i < _animationSettings.arraySize; i++)
                 {
-                    var setting = m_AnimationSettings.GetArrayElementAtIndex(i);
+                    var setting = _animationSettings.GetArrayElementAtIndex(i);
                     var nameProp = setting.FindPropertyRelative("AnimationName");
                     if (nameProp != null && !string.IsNullOrEmpty(nameProp.stringValue))
                     {
@@ -126,15 +122,15 @@ namespace FireAnimation
             EditorGUI.indentLevel++;
             foreach (var animInfo in animationInfos)
             {
-                if (!m_FoldoutStates.ContainsKey(animInfo.Name))
-                    m_FoldoutStates[animInfo.Name] = false;
+                _foldoutStates.TryAdd(animInfo.Name, false);
 
                 EditorGUILayout.BeginHorizontal();
-                bool isExpanded = EditorGUILayout.Foldout(m_FoldoutStates[animInfo.Name], animInfo.Name, true);
-                m_FoldoutStates[animInfo.Name] = isExpanded;
+                var isExpanded = EditorGUILayout.Foldout(_foldoutStates[animInfo.Name], animInfo.Name, true);
+                _foldoutStates[animInfo.Name] = isExpanded;
 
                 GUILayout.FlexibleSpace();
-                EditorGUILayout.LabelField($"{animInfo.FrameCount} frames", EditorStyles.miniLabel, GUILayout.Width(80));
+                EditorGUILayout.LabelField($"{animInfo.FrameCount} frames", EditorStyles.miniLabel,
+                    GUILayout.Width(80));
                 EditorGUILayout.EndHorizontal();
 
                 if (isExpanded)
@@ -143,7 +139,8 @@ namespace FireAnimation
                     EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
                     if (animInfo.SecondaryTextures != null && animInfo.SecondaryTextures.Count > 0)
-                        EditorGUILayout.LabelField($"Secondary Textures: {string.Join(", ", animInfo.SecondaryTextures)}");
+                        EditorGUILayout.LabelField(
+                            $"Secondary Textures: {string.Join(", ", animInfo.SecondaryTextures)}");
                     else
                         EditorGUILayout.LabelField("Secondary Textures: None");
 
@@ -152,8 +149,8 @@ namespace FireAnimation
                     SerializedProperty animSetting;
                     if (!settingsDict.TryGetValue(animInfo.Name, out animSetting))
                     {
-                        m_AnimationSettings.arraySize++;
-                        animSetting = m_AnimationSettings.GetArrayElementAtIndex(m_AnimationSettings.arraySize - 1);
+                        _animationSettings.arraySize++;
+                        animSetting = _animationSettings.GetArrayElementAtIndex(_animationSettings.arraySize - 1);
                         animSetting.FindPropertyRelative("AnimationName").stringValue = animInfo.Name;
                         animSetting.FindPropertyRelative("FramesPerSecond").floatValue = -1f;
                         animSetting.FindPropertyRelative("LoopTime").boolValue = true;
@@ -163,14 +160,15 @@ namespace FireAnimation
                     var fpsProp = animSetting.FindPropertyRelative("FramesPerSecond");
                     var loopProp = animSetting.FindPropertyRelative("LoopTime");
 
-                    float currentFps = fpsProp.floatValue;
-                    bool hasOverride = currentFps >= 0f;
-                    float defaultFps = m_FramesPerSecond.floatValue;
+                    var currentFps = fpsProp.floatValue;
+                    var hasOverride = currentFps >= 0f;
+                    var defaultFps = _framesPerSecond.floatValue;
 
                     EditorGUILayout.BeginHorizontal();
 
                     EditorGUI.BeginChangeCheck();
-                    bool newHasOverride = EditorGUILayout.Toggle("Override FPS", hasOverride, GUILayout.ExpandWidth(false));
+                    var newHasOverride =
+                        EditorGUILayout.Toggle("Override FPS", hasOverride, GUILayout.ExpandWidth(false));
                     if (EditorGUI.EndChangeCheck())
                     {
                         if (newHasOverride)
@@ -192,7 +190,7 @@ namespace FireAnimation
                     if (hasOverride)
                     {
                         EditorGUI.BeginChangeCheck();
-                        float newFps = EditorGUILayout.FloatField(currentFps, GUILayout.Width(100));
+                        var newFps = EditorGUILayout.FloatField(currentFps, GUILayout.Width(100));
                         if (EditorGUI.EndChangeCheck())
                         {
                             if (newFps > 0f)
@@ -219,6 +217,7 @@ namespace FireAnimation
 
                 EditorGUILayout.Space(2);
             }
+
             EditorGUI.indentLevel--;
         }
     }

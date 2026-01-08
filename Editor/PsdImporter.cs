@@ -12,14 +12,14 @@ namespace FireAnimation
     [ScriptedImporter(100, new string[] { }, new[] { ".psd" }, AllowCaching = true)]
     public class PsdImporter : ScriptedImporter
     {
-        [SerializeField] private int pixelsPerUnit = 100;
-        [SerializeField] private FilterMode filterMode = FilterMode.Point;
-        [SerializeField] private SpriteMeshType spriteMeshType = SpriteMeshType.FullRect;
-        [SerializeField] private TextureWrapMode wrapMode = TextureWrapMode.Clamp;
-        [SerializeField] private float framesPerSecond = 12f;
+        [SerializeField] private int _pixelsPerUnit = 100;
+        [SerializeField] private FilterMode _filterMode = FilterMode.Point;
+        [SerializeField] private SpriteMeshType _spriteMeshType = SpriteMeshType.FullRect;
+        [SerializeField] private TextureWrapMode _wrapMode = TextureWrapMode.Clamp;
+        [SerializeField] private float _framesPerSecond = 12f;
 
         [SerializeField] internal ImportMetadata Metadata;
-        [SerializeField] private List<AnimationSettings> animationSettings = new List<AnimationSettings>();
+        [SerializeField] private List<AnimationSettings> _animationSettings = new List<AnimationSettings>();
 
         public override void OnImportAsset(AssetImportContext ctx)
         {
@@ -85,13 +85,13 @@ namespace FireAnimation
             ctx.SetMainObject(mainAsset);
 
             IconHelper.SetPsdIcon(mainAsset);
-            AnimationGenerator.GenerateUnityAnimations(ctx, mainAsset, animationSettings, framesPerSecond);
+            AnimationGenerator.GenerateUnityAnimations(ctx, mainAsset, _animationSettings, _framesPerSecond);
         }
 
         private void InitializeAnimationSettings(List<SpriteAnimation> animations)
         {
             var existingSettings = new Dictionary<string, AnimationSettings>();
-            foreach (var setting in animationSettings)
+            foreach (var setting in _animationSettings)
             {
                 if (!string.IsNullOrEmpty(setting.AnimationName))
                     existingSettings[setting.AnimationName] = setting;
@@ -115,7 +115,7 @@ namespace FireAnimation
                 }
             }
 
-            animationSettings = newSettings;
+            _animationSettings = newSettings;
         }
 
         private FireAnimationAsset.AnimationData GenerateAnimationWithTextures(
@@ -141,11 +141,12 @@ namespace FireAnimation
             if (albedoTexture == null)
             {
                 if (secondaryTextures.Count > 0)
-                    ctx.LogImportWarning($"Animation '{animation.Name}' has secondary textures but no Albedo texture. Skipping.");
+                    ctx.LogImportWarning(
+                        $"Animation '{animation.Name}' has secondary textures but no Albedo texture. Skipping.");
                 return null;
             }
 
-            int albedoFrameCount = albedoTexture.Frames.Count;
+            var albedoFrameCount = albedoTexture.Frames.Count;
             foreach (var secTexture in secondaryTextures)
             {
                 if (secTexture.Frames.Count != albedoFrameCount)
@@ -173,8 +174,8 @@ namespace FireAnimation
                 unifiedDimensions,
                 documentWidth,
                 documentHeight,
-                filterMode,
-                wrapMode);
+                _filterMode,
+                _wrapMode);
 
             if (albedoResult.Texture == null)
                 return null;
@@ -191,12 +192,12 @@ namespace FireAnimation
                     unifiedDimensions,
                     documentWidth,
                     documentHeight,
-                    filterMode,
-                    wrapMode);
+                    _filterMode,
+                    _wrapMode);
 
                 if (secResult.Texture != null)
                 {
-                    string shaderPropertyName = TextureTypeHelper.GetShaderPropertyName(secTexture.Type);
+                    var shaderPropertyName = TextureTypeHelper.GetShaderPropertyName(secTexture.Type);
 
                     secondaryTextureDataList.Add(new FireAnimationAsset.SecondaryTextureData
                     {
@@ -213,9 +214,10 @@ namespace FireAnimation
             }
 
             var sprites = new Sprite[albedoResult.FrameCount];
-            for (int i = 0; i < albedoResult.FrameCount; i++)
+            for (var i = 0; i < albedoResult.FrameCount; i++)
             {
-                var rect = new Rect(i * unifiedDimensions.MaxWidth, 0, unifiedDimensions.MaxWidth, unifiedDimensions.MaxHeight);
+                var rect = new Rect(i * unifiedDimensions.MaxWidth, 0, unifiedDimensions.MaxWidth,
+                    unifiedDimensions.MaxHeight);
                 var pivot = new Vector2(0.5f, 0.5f);
 
                 Sprite sprite;
@@ -225,9 +227,9 @@ namespace FireAnimation
                         albedoResult.Texture,
                         rect,
                         pivot,
-                        pixelsPerUnit,
+                        _pixelsPerUnit,
                         0,
-                        spriteMeshType,
+                        _spriteMeshType,
                         Vector4.zero,
                         false,
                         secondarySpriteTextures.ToArray());
@@ -238,14 +240,14 @@ namespace FireAnimation
                         albedoResult.Texture,
                         rect,
                         pivot,
-                        pixelsPerUnit,
+                        _pixelsPerUnit,
                         0,
-                        spriteMeshType);
+                        _spriteMeshType);
                 }
 
-                string textureTypeName = TextureTypeHelper.GetDisplayName(albedoTexture.Type);
+                var textureTypeName = TextureTypeHelper.GetDisplayName(albedoTexture.Type);
                 sprite.name = $"{animation.Name}_{textureTypeName}_{i}";
-                string spriteId = $"{animation.Name}_{textureTypeName}_Sprite_{i}";
+                var spriteId = $"{animation.Name}_{textureTypeName}_Sprite_{i}";
                 ctx.AddObjectToAsset(spriteId, sprite);
                 sprites[i] = sprite;
             }
@@ -259,6 +261,5 @@ namespace FireAnimation
                 SecondaryTextures = secondaryTextureDataList.ToArray()
             };
         }
-
     }
 }

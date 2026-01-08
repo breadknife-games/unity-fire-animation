@@ -155,8 +155,8 @@ namespace FireAnimation
 
             for (var i = 0; i < node.Children.Count; i++)
             {
-                int reversedIndex = node.Children.Count - 1 - i;
-                texture.Frames[i].LayerIDs.Add(node.Children[reversedIndex].LayerID);
+                var reversedIndex = node.Children.Count - 1 - i;
+                texture.Frames[i].LayerIDs.Add(node.Children[reversedIndex].LayerId);
             }
         }
 
@@ -183,7 +183,7 @@ namespace FireAnimation
             var rootNodes = new List<LayerNode>();
             var groupStack = new Stack<LayerNode>();
 
-            for (int i = layers.Count - 1; i >= 0; i--)
+            for (var i = layers.Count - 1; i >= 0; i--)
             {
                 var layer = layers[i];
                 var sectionType = GetLayerSectionType(layer);
@@ -199,7 +199,7 @@ namespace FireAnimation
                     var groupNode = new LayerNode
                     {
                         Name = layer.Name,
-                        LayerID = layer.LayerID,
+                        LayerId = layer.LayerID,
                         IsGroup = true,
                         Color = layer.GetColor(),
                         Children = new List<LayerNode>(),
@@ -218,7 +218,7 @@ namespace FireAnimation
                     var layerNode = new LayerNode
                     {
                         Name = layer.Name,
-                        LayerID = layer.LayerID,
+                        LayerId = layer.LayerID,
                         IsGroup = false,
                         Color = layer.GetColor(),
                         Children = new List<LayerNode>(),
@@ -247,7 +247,7 @@ namespace FireAnimation
         private class LayerNode
         {
             public string Name { get; set; }
-            public int LayerID { get; set; }
+            public int LayerId { get; set; }
             public bool IsGroup { get; set; }
             public LayerColor Color { get; set; }
             public List<LayerNode> Children { get; set; }
