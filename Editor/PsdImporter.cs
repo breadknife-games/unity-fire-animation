@@ -253,6 +253,7 @@ namespace FireAnimation
             return new FireAnimationAsset.AnimationData
             {
                 Name = animation.Name,
+                Color = animation.Color,
                 Texture = albedoResult.Texture,
                 Sprites = sprites,
                 SecondaryTextures = secondaryTextureDataList.ToArray()

@@ -34,6 +34,7 @@ namespace FireAnimation
                 var animation = new SpriteAnimation
                 {
                     Name = animationName,
+                    Color = node.Color,
                     Textures = new List<AnimationTexture>()
                 };
 

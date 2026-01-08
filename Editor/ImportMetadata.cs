@@ -15,6 +15,7 @@ namespace FireAnimation
     public class SpriteAnimation
     {
         public string Name;
+        public LayerColor Color;
         public List<AnimationTexture> Textures = new List<AnimationTexture>();
     }
 

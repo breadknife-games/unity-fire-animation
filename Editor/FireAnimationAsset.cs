@@ -17,6 +17,7 @@ namespace FireAnimation
         public class AnimationData
         {
             public string Name;
+            public LayerColor Color;
             public Texture2D Texture;
             public Sprite[] Sprites;
             public SecondaryTextureData[] SecondaryTextures;

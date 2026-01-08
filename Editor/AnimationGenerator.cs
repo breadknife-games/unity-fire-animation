@@ -29,13 +29,45 @@ namespace FireAnimation
                 }
             }
 
-            var animationClips = new List<AnimationClip>();
-            var clipNames = new List<string>();
+            // Group animations by color
+            var animationsByColor = mainAsset.Animations
+                .GroupBy(a => a.Color)
+                .ToList();
 
-            foreach (var animData in mainAsset.Animations)
+            string baseName = Path.GetFileNameWithoutExtension(ctx.assetPath);
+            int groupIndex = 0;
+
+            foreach (var group in animationsByColor)
+            {
+                var animations = group.ToList();
+                var name = animations.First().Name.Split("_").Last();
+
+                string controllerName = animationsByColor.Count > 1
+                    ? $"{baseName}_{name}"
+                    : baseName;
+
+                CreateAssetsForGroup(ctx, controllerName, animations, settingsDict, defaultFps);
+                groupIndex++;
+            }
+        }
+
+        private static void CreateAssetsForGroup(
+            AssetImportContext ctx,
+            string controllerName,
+            List<FireAnimationAsset.AnimationData> animations,
+            Dictionary<string, AnimationSettings> settingsDict,
+            float defaultFps)
+        {
+            var clips = new List<AnimationClip>();
+            Sprite firstSprite = null;
+
+            foreach (var animData in animations)
             {
                 if (animData.Sprites == null || animData.Sprites.Length == 0)
                     continue;
+
+                if (firstSprite == null)
+                    firstSprite = animData.Sprites[0];
 
                 AnimationSettings settings = null;
                 if (!settingsDict.TryGetValue(animData.Name, out settings))
@@ -43,30 +75,28 @@ namespace FireAnimation
                     settings = new AnimationSettings
                     {
                         AnimationName = animData.Name,
-                        FramesPerSecond = -1f, // Use default
+                        FramesPerSecond = -1f,
                         LoopTime = true
                     };
                 }
 
-                // Use default FPS if override is not set (FramesPerSecond < 0)
                 float fpsToUse = settings.FramesPerSecond >= 0f ? settings.FramesPerSecond : defaultFps;
                 var clip = CreateAnimationClip(animData.Name, animData.Sprites, fpsToUse, settings.LoopTime);
                 if (clip != null)
                 {
-                    string clipId = $"{animData.Name}_AnimationClip";
-                    ctx.AddObjectToAsset(clipId, clip);
-                    animationClips.Add(clip);
-                    clipNames.Add(animData.Name);
+                    ctx.AddObjectToAsset($"{animData.Name}_AnimationClip", clip);
+                    clips.Add(clip);
                 }
             }
 
-            if (animationClips.Count == 0)
-                return;
-
-            CreateAnimatorController(
-                ctx,
-                Path.GetFileNameWithoutExtension(ctx.assetPath),
-                animationClips);
+            if (clips.Count > 0 && firstSprite != null)
+            {
+                var controller = CreateAnimatorController(ctx, controllerName, clips);
+                if (controller != null)
+                {
+                    CreatePrefab(ctx, controllerName, controller, firstSprite);
+                }
+            }
         }
 
         private static AnimationClip CreateAnimationClip(string animationName, Sprite[] sprites, float fps, bool loopTime)
@@ -143,6 +173,25 @@ namespace FireAnimation
 
             ctx.AddObjectToAsset(controller.name + "_Controller", controller);
             return controller;
+        }
+
+        private static GameObject CreatePrefab(
+            AssetImportContext ctx,
+            string prefabName,
+            AnimatorController controller,
+            Sprite defaultSprite)
+        {
+            var prefab = new GameObject(prefabName);
+
+            var spriteRenderer = prefab.AddComponent<SpriteRenderer>();
+            spriteRenderer.sprite = defaultSprite;
+
+            var animator = prefab.AddComponent<Animator>();
+            animator.runtimeAnimatorController = controller;
+
+            ctx.AddObjectToAsset($"{prefabName}_Prefab", prefab);
+
+            return prefab;
         }
     }
 }
