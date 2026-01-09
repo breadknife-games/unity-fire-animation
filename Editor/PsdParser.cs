@@ -172,8 +172,9 @@ namespace FireAnimation
         {
             return color switch
             {
-                LayerColor.Seafoam => TextureType.Albedo,
-                LayerColor.Fuchsia => TextureType.Normal,
+                LayerColor.Gray => TextureType.Albedo,
+                // LayerColor. => TextureType.Normal,
+                LayerColor.Indigo => TextureType.LightingRegion,
                 _ => TextureType.Unknown
             };
         }

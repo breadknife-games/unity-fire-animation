@@ -8,6 +8,7 @@ namespace FireAnimation
             {
                 TextureType.Normal => "Normal",
                 TextureType.Albedo => "Albedo",
+                TextureType.LightingRegion => "LightingRegion",
                 _ => type.ToString()
             };
         }
@@ -18,6 +19,7 @@ namespace FireAnimation
             {
                 TextureType.Normal => "_NormalMap",
                 TextureType.Albedo => "_MainTex",
+                TextureType.LightingRegion => "_NormalMap", // LightingRegion generates normals
                 _ => $"_{type}Map"
             };
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using FireAnimation.NormalGeneration;
 using PaintDotNet.Data.PhotoshopFileType;
 using PDNWrapper;
 using PhotoshopFile;
@@ -126,6 +127,7 @@ namespace FireAnimation
         {
             AnimationTexture albedoTexture = null;
             var secondaryTextures = new List<AnimationTexture>();
+            var lightingRegionTextures = new List<AnimationTexture>();
 
             foreach (var texture in animation.Textures)
             {
@@ -134,6 +136,8 @@ namespace FireAnimation
 
                 if (texture.Type == TextureType.Albedo)
                     albedoTexture = texture;
+                else if (texture.Type == TextureType.LightingRegion)
+                    lightingRegionTextures.Add(texture);
                 else
                     secondaryTextures.Add(texture);
             }
@@ -213,6 +217,20 @@ namespace FireAnimation
                 }
             }
 
+            // Process Lighting Region Maps to generate normal maps
+            if (lightingRegionTextures.Count > 0)
+            {
+                ProcessLightingRegionTextures(
+                    ctx,
+                    animation.Name,
+                    lightingRegionTextures,
+                    albedoFrameCount,
+                    documentWidth,
+                    documentHeight,
+                    secondaryTextureDataList,
+                    secondarySpriteTextures);
+            }
+
             var sprites = new Sprite[albedoResult.FrameCount];
             for (var i = 0; i < albedoResult.FrameCount; i++)
             {
@@ -260,6 +278,39 @@ namespace FireAnimation
                 Sprites = sprites,
                 SecondaryTextures = secondaryTextureDataList.ToArray()
             };
+        }
+
+        private void ProcessLightingRegionTextures(
+            AssetImportContext ctx,
+            string animationName,
+            List<AnimationTexture> lightingRegionTextures,
+            int frameCount,
+            int documentWidth,
+            int documentHeight,
+            List<FireAnimationAsset.SecondaryTextureData> secondaryTextureDataList,
+            List<SecondarySpriteTexture> secondarySpriteTextures)
+        {
+            // Process each frame
+            for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
+            {
+                var debugTexture = LightingRegionProcessor.ProcessLightingRegions(
+                    ctx,
+                    animationName,
+                    lightingRegionTextures,
+                    documentWidth,
+                    documentHeight,
+                    frameIndex);
+
+                if (debugTexture != null)
+                {
+                    // For now, add as a debug texture
+                    // Later this will be replaced with proper normal map generation
+                    // and added to the secondary textures for sprite rendering
+                    ctx.LogImportWarning(
+                        $"Generated debug distance field texture for {animationName} frame {frameIndex}: " +
+                        $"{debugTexture.width}x{debugTexture.height}");
+                }
+            }
         }
     }
 }

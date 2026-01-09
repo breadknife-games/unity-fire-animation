@@ -22,7 +22,8 @@ namespace FireAnimation
     {
         Unknown,
         Albedo,
-        Normal
+        Normal,
+        LightingRegion
     }
 
     [Serializable]

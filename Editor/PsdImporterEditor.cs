@@ -21,12 +21,12 @@ namespace FireAnimation
         public override void OnEnable()
         {
             base.OnEnable();
-            _pixelsPerUnit = serializedObject.FindProperty("pixelsPerUnit");
-            _filterMode = serializedObject.FindProperty("filterMode");
-            _spriteMeshType = serializedObject.FindProperty("spriteMeshType");
-            _wrapMode = serializedObject.FindProperty("wrapMode");
-            _framesPerSecond = serializedObject.FindProperty("framesPerSecond");
-            _animationSettings = serializedObject.FindProperty("animationSettings");
+            _pixelsPerUnit = serializedObject.FindProperty("_pixelsPerUnit");
+            _filterMode = serializedObject.FindProperty("_filterMode");
+            _spriteMeshType = serializedObject.FindProperty("_spriteMeshType");
+            _wrapMode = serializedObject.FindProperty("_wrapMode");
+            _framesPerSecond = serializedObject.FindProperty("_framesPerSecond");
+            _animationSettings = serializedObject.FindProperty("_animationSettings");
         }
 
         public override void OnInspectorGUI()
