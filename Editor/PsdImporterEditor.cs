@@ -17,6 +17,7 @@ namespace FireAnimation
         private SerializedProperty _framesPerSecond;
         private SerializedProperty _defaultBevelWidth;
         private SerializedProperty _defaultSmoothness;
+        private SerializedProperty _defaultEdgeSmoothness;
         private SerializedProperty _edgeInset;
         private SerializedProperty _animationSettings;
         private SerializedProperty _groupPartSettings;
@@ -40,6 +41,7 @@ namespace FireAnimation
             _framesPerSecond = serializedObject.FindProperty("_framesPerSecond");
             _defaultBevelWidth = serializedObject.FindProperty("_defaultBevelWidth");
             _defaultSmoothness = serializedObject.FindProperty("_defaultSmoothness");
+            _defaultEdgeSmoothness = serializedObject.FindProperty("_defaultEdgeSmoothness");
             _edgeInset = serializedObject.FindProperty("_edgeInset");
             _animationSettings = serializedObject.FindProperty("_animationSettings");
             _groupPartSettings = serializedObject.FindProperty("_groupPartSettings");
@@ -121,6 +123,9 @@ namespace FireAnimation
             EditorGUILayout.LabelField("Default Normal Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(_defaultBevelWidth, new GUIContent("Default Bevel Width"));
             EditorGUILayout.PropertyField(_defaultSmoothness, new GUIContent("Default Smoothness"));
+            EditorGUILayout.PropertyField(_defaultEdgeSmoothness,
+                new GUIContent("Default Edge Smoothness",
+                    "Smooths the transition from bevel to flat interior (0 = hard edge)"));
             EditorGUILayout.PropertyField(_edgeInset,
                 new GUIContent("Edge Inset", "Distance inward from edge where normals start (reduces fringing)"));
 
@@ -439,6 +444,7 @@ namespace FireAnimation
                     partSetting.FindPropertyRelative("PartName").stringValue = part.Name;
                     partSetting.FindPropertyRelative("BevelWidth").floatValue = -1f;
                     partSetting.FindPropertyRelative("Smoothness").floatValue = -1f;
+                    partSetting.FindPropertyRelative("EdgeSmoothness").floatValue = -1f;
                     partSettingsDict[part.Name] = partSetting;
                 }
 
@@ -500,12 +506,15 @@ namespace FireAnimation
         {
             var defaultBevelWidth = _defaultBevelWidth.floatValue;
             var defaultSmoothness = _defaultSmoothness.floatValue;
+            var defaultEdgeSmoothness = _defaultEdgeSmoothness.floatValue;
 
             var bevelProp = partSetting.FindPropertyRelative("BevelWidth");
             var smoothProp = partSetting.FindPropertyRelative("Smoothness");
+            var edgeSmoothProp = partSetting.FindPropertyRelative("EdgeSmoothness");
 
             DrawBevelWidthWithFullOption(bevelProp, defaultBevelWidth);
             DrawOverrideFloat("Smoothness", smoothProp, defaultSmoothness);
+            DrawOverrideFloat("Edge Smoothness", edgeSmoothProp, defaultEdgeSmoothness);
         }
 
         private void DrawOverrideFloat(string label, SerializedProperty prop, float defaultValue)

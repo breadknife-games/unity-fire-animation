@@ -15,6 +15,7 @@ namespace FireAnimation.NormalGeneration
         {
             public float DefaultBevelWidth;
             public float DefaultSmoothness;
+            public float DefaultEdgeSmoothness;
             public float EdgeInset;
             public FilterMode FilterMode;
             public TextureWrapMode WrapMode;
@@ -130,6 +131,7 @@ namespace FireAnimation.NormalGeneration
 
                     var bevelWidth = settings.DefaultBevelWidth;
                     var smoothness = settings.DefaultSmoothness;
+                    var edgeSmoothness = settings.DefaultEdgeSmoothness;
 
                     if (settings.PartSettings != null &&
                         settings.PartSettings.TryGetValue(part.Name, out var partSetting))
@@ -138,6 +140,8 @@ namespace FireAnimation.NormalGeneration
                             bevelWidth = partSetting.BevelWidth;
                         if (partSetting.Smoothness >= 0)
                             smoothness = partSetting.Smoothness;
+                        if (partSetting.EdgeSmoothness >= 0)
+                            edgeSmoothness = partSetting.EdgeSmoothness;
                     }
 
                     using var partPixels = new NativeArray<Color32>(
@@ -157,6 +161,7 @@ namespace FireAnimation.NormalGeneration
                         documentHeight,
                         bevelWidth,
                         smoothness,
+                        edgeSmoothness,
                         settings.EdgeInset,
                         out _);
 

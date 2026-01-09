@@ -19,6 +19,7 @@ namespace FireAnimation.NormalGeneration
         /// <param name="height">Document height</param>
         /// <param name="bevelWidth">How far the bevel extends inward</param>
         /// <param name="smoothness">Blur radius for normal smoothing (0 = no smoothing)</param>
+        /// <param name="edgeSmoothness">Blur radius for smoothing bevel into flat interior (0 = hard edge)</param>
         /// <param name="edgeInset">Distance inward from edge where normals start (0 = at edge)</param>
         /// <param name="outRegion">Optional: outputs the region for debug visualization</param>
         /// <returns>Normal map as Color32 array (document-sized)</returns>
@@ -29,6 +30,7 @@ namespace FireAnimation.NormalGeneration
             int height,
             float bevelWidth,
             float smoothness,
+            float edgeSmoothness,
             float edgeInset,
             out LightingRegion outRegion)
         {
@@ -52,10 +54,16 @@ namespace FireAnimation.NormalGeneration
             NormalMapGenerator.GenerateNormals(region, bevelWidth);
 
             // Apply smoothing (per-part, before combining)
-            // Only smooths within bevel zone - preserves hard edge at bevel boundary
+            // First smooth within bevel zone, then smooth the inner edge transition
             if (smoothness > 0f)
             {
                 NormalSmoother.SmoothNormals(region, bevelWidth, smoothness);
+            }
+
+            // Smooth the transition from bevel to flat interior
+            if (edgeSmoothness > 0f)
+            {
+                NormalSmoother.SmoothInnerEdge(region, bevelWidth, edgeSmoothness);
             }
 
             // Convert to full document-sized array

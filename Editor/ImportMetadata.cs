@@ -82,6 +82,7 @@ namespace FireAnimation
         public string PartName;
         public float BevelWidth = -1f; // -1 = use default
         public float Smoothness = -1f; // -1 = use default
+        public float EdgeSmoothness = -1f; // -1 = use default, smooths the inner bevel edge into the flat center
     }
 
     [Serializable]

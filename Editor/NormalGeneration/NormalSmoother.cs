@@ -9,6 +9,8 @@ namespace FireAnimation.NormalGeneration
     /// </summary>
     public static class NormalSmoother
     {
+        private static readonly Vector3 FlatNormal = Vector3.forward; // (0, 0, 1) - pointing straight out
+
         /// <summary>
         /// Apply Gaussian smoothing to a region's normal map.
         /// Only smooths pixels within the bevel width - flat center pixels are untouched.
@@ -163,6 +165,80 @@ namespace FireAnimation.NormalGeneration
             }
 
             return normals[y * width + x];
+        }
+
+        /// <summary>
+        /// Smooth the inner edge where the bevel meets the flat center.
+        /// Creates a gradual transition from beveled normals to flat normals.
+        /// Works by fading bevel normals toward flat as distance approaches bevelWidth.
+        /// </summary>
+        /// <param name="region">Region with generated normal map and distance field</param>
+        /// <param name="bevelWidth">The bevel width - defines where the inner edge is</param>
+        /// <param name="radius">Transition radius in pixels. Controls how far from the inner edge the fade starts.</param>
+        public static void SmoothInnerEdge(LightingRegion region, float bevelWidth, float radius)
+        {
+            if (region?.NormalMap == null || region.DistanceField == null || radius <= 0f)
+                return;
+
+            var width = region.Width;
+            var height = region.Height;
+
+            // Process pixels within the bevel zone, fading toward flat near the inner edge
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    var index = y * width + x;
+
+                    // Skip pixels outside the region
+                    if (!region.RegionMask[index])
+                        continue;
+
+                    var distance = region.DistanceField[index];
+
+                    // Skip pixels at infinity (outside bevel zone - already flat)
+                    if (distance >= DistanceFieldGenerator.Infinity)
+                        continue;
+
+                    // Skip pixels outside the bevel width (shouldn't happen, but safety check)
+                    if (distance >= bevelWidth)
+                        continue;
+
+                    // Calculate how far from the inner edge we are
+                    // distToInnerEdge = 0 at the inner boundary (distance == bevelWidth)
+                    // distToInnerEdge = radius at the start of the fade zone
+                    var distToInnerEdge = bevelWidth - distance;
+
+                    // Only process pixels within the fade zone (near the inner edge)
+                    if (distToInnerEdge > radius)
+                        continue;
+
+                    // Calculate blend factor: 
+                    // t = 0 at inner edge (distance == bevelWidth), blend to flat
+                    // t = 1 at start of fade zone (distToInnerEdge == radius), keep full bevel
+                    var t = distToInnerEdge / radius;
+                    t = Mathf.Clamp01(t);
+
+                    // Smooth the transition with a smooth step function
+                    t = SmoothStep(t);
+
+                    // Decode current normal
+                    var currentNormal = DecodeNormal(region.NormalMap[index]);
+
+                    // Blend between flat normal (t=0) and current beveled normal (t=1)
+                    var blendedNormal = Vector3.Lerp(FlatNormal, currentNormal, t).normalized;
+
+                    region.NormalMap[index] = EncodeNormal(blendedNormal);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Hermite smooth step function for smooth interpolation.
+        /// </summary>
+        private static float SmoothStep(float t)
+        {
+            return t * t * (3f - 2f * t);
         }
 
         private static float[] GenerateGaussianKernel(float sigma, int radius)
