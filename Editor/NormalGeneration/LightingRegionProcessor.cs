@@ -61,14 +61,14 @@ namespace FireAnimation.NormalGeneration
 
                 // Log buffer info for debugging
                 Debug.Log(
-                    $"[LightingRegion] Processing {animTexture.Name} frame {frameIndex}: buffer {width}x{height}");
+                    $"[LightingRegion] Processing {TextureTypeHelper.GetDisplayName(animTexture.Type)} frame {frameIndex}: buffer {width}x{height}");
 
                 // Discover regions in this texture
                 var map = RegionDiscovery.DiscoverRegions(
                     buffer,
                     width,
                     height,
-                    animTexture.Name,
+                    TextureTypeHelper.GetDisplayName(animTexture.Type),
                     layerOrder);
 
                 Debug.Log($"[LightingRegion] Found {map.Regions.Count} regions");

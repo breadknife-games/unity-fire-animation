@@ -31,8 +31,7 @@ namespace FireAnimation
     internal static class TextureAtlasGenerator
     {
         public static UnifiedDimensions CalculateUnifiedDimensions(
-            AnimationTexture albedoTexture,
-            List<AnimationTexture> secondaryTextures,
+            List<AnimationTexture> textures,
             int documentWidth,
             int documentHeight)
         {
@@ -40,33 +39,23 @@ namespace FireAnimation
             var maxHeight = 0;
             var frameCount = 0;
 
-            void CheckFrameDimensions(AnimationFrame frame)
+            foreach (var texture in textures)
             {
-                if (frame.BitmapLayers == null || frame.BitmapLayers.Count == 0)
-                    return;
-
-                var bounds = LayerMerger.CalculateMergedBounds(frame.BitmapLayers);
-                maxWidth = Math.Max(maxWidth, bounds.width);
-                maxHeight = Math.Max(maxHeight, bounds.height);
-            }
-
-            if (albedoTexture != null && albedoTexture.Frames.Count > 0)
-            {
-                frameCount = albedoTexture.Frames.Count;
-                foreach (var frame in albedoTexture.Frames)
-                    CheckFrameDimensions(frame);
-            }
-
-            foreach (var texture in secondaryTextures)
-            {
-                if (texture.Frames.Count != frameCount && frameCount > 0)
+                if (texture.Frames.Count == 0)
                     continue;
 
-                if (frameCount == 0)
-                    frameCount = texture.Frames.Count;
+                // Use the max frame count across all textures
+                frameCount = Math.Max(frameCount, texture.Frames.Count);
 
                 foreach (var frame in texture.Frames)
-                    CheckFrameDimensions(frame);
+                {
+                    if (frame.BitmapLayers == null || frame.BitmapLayers.Count == 0)
+                        continue;
+
+                    var bounds = LayerMerger.CalculateMergedBounds(frame.BitmapLayers);
+                    maxWidth = Math.Max(maxWidth, bounds.width);
+                    maxHeight = Math.Max(maxHeight, bounds.height);
+                }
             }
 
             return new UnifiedDimensions
@@ -88,7 +77,21 @@ namespace FireAnimation
             TextureWrapMode wrapMode)
         {
             var frames = animTexture.Frames;
-            if (frames.Count == 0 || frames[0].BitmapLayers == null)
+            if (frames.Count == 0)
+                return default;
+
+            // Check if any frame has valid layers
+            var hasValidFrames = false;
+            foreach (var frame in frames)
+            {
+                if (frame.BitmapLayers != null && frame.BitmapLayers.Count > 0)
+                {
+                    hasValidFrames = true;
+                    break;
+                }
+            }
+
+            if (!hasValidFrames)
                 return default;
 
             var frameData = new List<FrameBufferData>();

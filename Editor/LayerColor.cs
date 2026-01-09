@@ -17,4 +17,31 @@ namespace FireAnimation
         Violet = 1536,
         Gray = 1792
     }
+
+    public static class LayerColorExtensions
+    {
+        public static bool IsValidGroupColor(this LayerColor color)
+        {
+            return color != LayerColor.Default;
+        }
+
+        public static string GetDisplayName(this LayerColor color)
+        {
+            return color switch
+            {
+                LayerColor.Red => "Red",
+                LayerColor.Orange => "Orange",
+                LayerColor.Yellow => "Yellow",
+                LayerColor.Green => "Green",
+                LayerColor.Seafoam => "Seafoam",
+                LayerColor.Blue => "Blue",
+                LayerColor.Indigo => "Indigo",
+                LayerColor.Magenta => "Magenta",
+                LayerColor.Fuchsia => "Fuchsia",
+                LayerColor.Violet => "Violet",
+                LayerColor.Gray => "Gray",
+                _ => "Default"
+            };
+        }
+    }
 }

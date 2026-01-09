@@ -7,14 +7,27 @@ namespace FireAnimation
     [Serializable]
     public class ImportMetadata
     {
+        public List<GameObjectGroup> Groups = new List<GameObjectGroup>();
+    }
+
+    /// <summary>
+    /// A group of animations that belong to a single GameObject, defined by layer color.
+    /// </summary>
+    [Serializable]
+    public class GameObjectGroup
+    {
+        public string Name;
+        public LayerColor Color;
         public List<SpriteAnimation> Animations = new List<SpriteAnimation>();
     }
 
+    /// <summary>
+    /// A single animation (e.g., run, walk, idle) containing textures of different types.
+    /// </summary>
     [Serializable]
     public class SpriteAnimation
     {
         public string Name;
-        public LayerColor Color;
         public List<AnimationTexture> Textures = new List<AnimationTexture>();
     }
 
@@ -26,14 +39,20 @@ namespace FireAnimation
         LightingRegion
     }
 
+    /// <summary>
+    /// A texture of a specific type (Albedo, Normal, etc.) for an animation.
+    /// Multiple source textures of the same type are merged into one.
+    /// </summary>
     [Serializable]
     public class AnimationTexture
     {
-        public string Name;
         public TextureType Type;
         public List<AnimationFrame> Frames = new List<AnimationFrame>();
     }
 
+    /// <summary>
+    /// A single frame within an animation texture, containing layer data to be merged.
+    /// </summary>
     [Serializable]
     public class AnimationFrame
     {

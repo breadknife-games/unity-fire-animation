@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
 using UnityEditor;
 using UnityEditor.AssetImporters;
@@ -16,7 +15,7 @@ namespace FireAnimation
             List<AnimationSettings> animationSettings,
             float defaultFps)
         {
-            if (mainAsset.Animations == null || mainAsset.Animations.Length == 0)
+            if (mainAsset.Groups == null || mainAsset.Groups.Length == 0)
                 return;
 
             var settingsDict = new Dictionary<string, AnimationSettings>();
@@ -29,36 +28,33 @@ namespace FireAnimation
                 }
             }
 
-            // Group animations by color
-            var animationsByColor = mainAsset.Animations
-                .GroupBy(a => a.Color)
-                .ToList();
-
             var baseName = Path.GetFileNameWithoutExtension(ctx.assetPath);
 
-            foreach (var group in animationsByColor)
+            foreach (var group in mainAsset.Groups)
             {
-                var animations = group.ToList();
-                var name = animations.First().Name.Split("_").Last();
-                var controllerName = animationsByColor.Count > 1
-                    ? $"{baseName}_{name}"
-                    : baseName;
+                if (!group.Color.IsValidGroupColor())
+                    continue;
 
-                CreateAssetsForGroup(ctx, controllerName, animations, settingsDict, defaultFps);
+                if (group.Animations == null || group.Animations.Length == 0)
+                    continue;
+
+                var controllerName = !string.IsNullOrEmpty(group.Name) ? group.Name : baseName;
+
+                CreateAssetsForGroup(ctx, controllerName, group, settingsDict, defaultFps);
             }
         }
 
         private static void CreateAssetsForGroup(
             AssetImportContext ctx,
             string controllerName,
-            List<FireAnimationAsset.AnimationData> animations,
+            FireAnimationAsset.GroupData group,
             Dictionary<string, AnimationSettings> settingsDict,
             float defaultFps)
         {
             var clips = new List<AnimationClip>();
             Sprite firstSprite = null;
 
-            foreach (var animData in animations)
+            foreach (var animData in group.Animations)
             {
                 if (animData.Sprites == null || animData.Sprites.Length == 0)
                     continue;

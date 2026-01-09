@@ -7,55 +7,106 @@ namespace FireAnimation
 {
     public class PsdParser
     {
-        internal List<SpriteAnimation> ParsePsd(PsdFile file, string psdFileName)
+        internal List<GameObjectGroup> ParsePsd(PsdFile file, string psdFileName)
         {
-            var animations = new List<SpriteAnimation>();
             var rootNodes = BuildLayerTree(file.Layers);
-            foreach (var rootNode in rootNodes)
-                FindSpriteAnimations(rootNode, animations, psdFileName);
+            var animationsByColor = new Dictionary<LayerColor, List<SpriteAnimation>>();
 
-            return animations;
+            foreach (var rootNode in rootNodes)
+                FindAnimations(rootNode, animationsByColor, psdFileName);
+
+            // Convert to GameObjectGroups, filtering out invalid colors
+            var groups = new List<GameObjectGroup>();
+            foreach (var kvp in animationsByColor)
+            {
+                if (!kvp.Key.IsValidGroupColor())
+                    continue;
+
+                if (kvp.Value.Count == 0)
+                    continue;
+
+                var group = new GameObjectGroup
+                {
+                    Name = kvp.Value[0].Name,
+                    Color = kvp.Key,
+                    Animations = kvp.Value
+                };
+                groups.Add(group);
+            }
+
+            return groups;
         }
 
-        private void FindSpriteAnimations(
+        private void FindAnimations(
             LayerNode node,
-            List<SpriteAnimation> animations,
+            Dictionary<LayerColor, List<SpriteAnimation>> animationsByColor,
             string psdFileName)
         {
             if (!node.IsGroup)
                 return;
 
-            var isSprite = node.Children.Any(child =>
+            // Check if this node is an animation (has texture children)
+            var hasTextureChildren = node.Children.Any(child =>
                 child.IsGroup && GetTextureType(child.Color) != TextureType.Unknown);
 
-            if (isSprite)
+            if (hasTextureChildren)
             {
-                var animationName = BuildAnimationName(psdFileName, node);
-                var animation = new SpriteAnimation
+                var animation = ProcessAnimationNode(node, psdFileName);
+                if (animation != null && animation.Textures.Count > 0)
                 {
-                    Name = animationName,
-                    Color = node.Color,
-                    Textures = new List<AnimationTexture>()
-                };
-
-                foreach (var child in node.Children)
-                {
-                    if (child.IsGroup && GetTextureType(child.Color) != TextureType.Unknown)
+                    var groupColor = node.Color;
+                    if (!animationsByColor.TryGetValue(groupColor, out var list))
                     {
-                        var texture = ProcessTextureNode(child);
-                        if (texture != null)
-                            animation.Textures.Add(texture);
+                        list = new List<SpriteAnimation>();
+                        animationsByColor[groupColor] = list;
                     }
-                }
 
-                if (animation.Textures.Count > 0)
-                    animations.Add(animation);
+                    list.Add(animation);
+                }
 
                 return;
             }
 
             foreach (var child in node.Children)
-                FindSpriteAnimations(child, animations, psdFileName);
+                FindAnimations(child, animationsByColor, psdFileName);
+        }
+
+        private SpriteAnimation ProcessAnimationNode(LayerNode node, string psdFileName)
+        {
+            var animationName = BuildAnimationName(psdFileName, node);
+            var texturesByType = new Dictionary<TextureType, AnimationTexture>();
+
+            foreach (var child in node.Children)
+            {
+                if (!child.IsGroup)
+                    continue;
+
+                var textureType = GetTextureType(child.Color);
+                if (textureType == TextureType.Unknown)
+                    continue;
+
+                // Get or create the texture for this type
+                if (!texturesByType.TryGetValue(textureType, out var texture))
+                {
+                    texture = new AnimationTexture
+                    {
+                        Type = textureType,
+                        Frames = new List<AnimationFrame>()
+                    };
+                    texturesByType[textureType] = texture;
+                }
+
+                // Process this node's frames and merge into the texture
+                ProcessTextureNodeGroup(texture, child);
+            }
+
+            var animation = new SpriteAnimation
+            {
+                Name = animationName,
+                Textures = texturesByType.Values.ToList()
+            };
+
+            return animation;
         }
 
         private string BuildAnimationName(string psdFileName, LayerNode node)
@@ -73,24 +124,26 @@ namespace FireAnimation
             return string.Join("_", pathParts);
         }
 
-
-        internal void ResolveLayersFromDocument(List<SpriteAnimation> animations, Document document)
+        internal void ResolveLayersFromDocument(List<GameObjectGroup> groups, Document document)
         {
             var layerLookup = new Dictionary<int, BitmapLayer>();
             BuildLayerLookup(document.Layers, layerLookup);
 
-            foreach (var animation in animations)
+            foreach (var group in groups)
             {
-                foreach (var texture in animation.Textures)
+                foreach (var animation in group.Animations)
                 {
-                    foreach (var frame in texture.Frames)
+                    foreach (var texture in animation.Textures)
                     {
-                        frame.BitmapLayers = new List<BitmapLayer>();
-                        foreach (var layerId in frame.LayerIDs)
+                        foreach (var frame in texture.Frames)
                         {
-                            if (layerLookup.TryGetValue(layerId, out var bitmapLayer))
+                            frame.BitmapLayers = new List<BitmapLayer>();
+                            foreach (var layerId in frame.LayerIDs)
                             {
-                                frame.BitmapLayers.Add(bitmapLayer);
+                                if (layerLookup.TryGetValue(layerId, out var bitmapLayer))
+                                {
+                                    frame.BitmapLayers.Add(bitmapLayer);
+                                }
                             }
                         }
                     }
@@ -108,26 +161,6 @@ namespace FireAnimation
                     BuildLayerLookup(layer.ChildLayer, lookup);
                 }
             }
-        }
-
-        private AnimationTexture ProcessTextureNode(LayerNode node)
-        {
-            if (node.Color == LayerColor.Red)
-                return null;
-
-            var textureType = GetTextureType(node.Color);
-            if (textureType == TextureType.Unknown) return null;
-
-            var texture = new AnimationTexture
-            {
-                Name = node.Name,
-                Type = textureType,
-                Frames = new List<AnimationFrame>()
-            };
-
-            ProcessTextureNodeGroup(texture, node);
-
-            return texture;
         }
 
         private void ProcessTextureNodeGroup(AnimationTexture texture, LayerNode node)
@@ -173,7 +206,6 @@ namespace FireAnimation
             return color switch
             {
                 LayerColor.Gray => TextureType.Albedo,
-                // LayerColor. => TextureType.Normal,
                 LayerColor.Indigo => TextureType.LightingRegion,
                 _ => TextureType.Unknown
             };

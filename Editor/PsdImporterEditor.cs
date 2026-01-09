@@ -42,14 +42,14 @@ namespace FireAnimation
             EditorGUILayout.PropertyField(_framesPerSecond, new GUIContent("Default Frames Per Second"));
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Animations", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("GameObject Groups", EditorStyles.boldLabel);
 
             var importer = (PsdImporter)target;
-            var animationInfos = GetAnimationInfos(importer);
-            if (animationInfos is { Count: > 0 })
-                DrawAnimationsList(animationInfos);
+            var groupInfos = GetGroupInfos(importer);
+            if (groupInfos is { Count: > 0 })
+                DrawGroupsList(groupInfos);
             else
-                EditorGUILayout.HelpBox("No animations found. Import the PSD file to see animations.",
+                EditorGUILayout.HelpBox("No groups found. Import the PSD file to see groups.",
                     MessageType.Info);
 
 
@@ -67,43 +67,60 @@ namespace FireAnimation
         {
             public string Name;
             public int FrameCount;
-            public List<string> SecondaryTextures;
+            public List<string> TextureTypes;
         }
 
-        private List<AnimationInfo> GetAnimationInfos(PsdImporter importer)
+        private class GroupInfo
         {
-            if (importer.Metadata is not { Animations: { Count: > 0 } }) return null;
+            public string Name;
+            public LayerColor Color;
+            public List<AnimationInfo> Animations;
+        }
 
-            var infos = new List<AnimationInfo>();
-            foreach (var anim in importer.Metadata.Animations)
+        private List<GroupInfo> GetGroupInfos(PsdImporter importer)
+        {
+            if (importer.Metadata is not { Groups: { Count: > 0 } }) return null;
+
+            var groupInfos = new List<GroupInfo>();
+            foreach (var group in importer.Metadata.Groups)
             {
-                var frameCount = 0;
-                var secondaryTextures = new List<string>();
-
-                foreach (var texture in anim.Textures)
+                var groupInfo = new GroupInfo
                 {
-                    if (texture.Type == TextureType.Albedo)
+                    Name = group.Name,
+                    Color = group.Color,
+                    Animations = new List<AnimationInfo>()
+                };
+
+                foreach (var anim in group.Animations)
+                {
+                    var frameCount = 0;
+                    var textureTypes = new List<string>();
+
+                    foreach (var texture in anim.Textures)
                     {
-                        frameCount = texture.Frames?.Count ?? 0;
+                        if (texture.Type == TextureType.Albedo)
+                        {
+                            frameCount = texture.Frames?.Count ?? 0;
+                        }
+
+                        textureTypes.Add(TextureTypeHelper.GetDisplayName(texture.Type));
                     }
-                    else if (texture.Type != TextureType.Unknown)
+
+                    groupInfo.Animations.Add(new AnimationInfo
                     {
-                        secondaryTextures.Add(texture.Name);
-                    }
+                        Name = anim.Name,
+                        FrameCount = frameCount,
+                        TextureTypes = textureTypes
+                    });
                 }
 
-                infos.Add(new AnimationInfo
-                {
-                    Name = anim.Name,
-                    FrameCount = frameCount,
-                    SecondaryTextures = secondaryTextures
-                });
+                groupInfos.Add(groupInfo);
             }
 
-            return infos;
+            return groupInfos;
         }
 
-        private void DrawAnimationsList(List<AnimationInfo> animationInfos)
+        private void DrawGroupsList(List<GroupInfo> groupInfos)
         {
             var settingsDict = new Dictionary<string, SerializedProperty>();
             if (_animationSettings is { isArray: true })
@@ -119,106 +136,118 @@ namespace FireAnimation
                 }
             }
 
-            EditorGUI.indentLevel++;
-            foreach (var animInfo in animationInfos)
+            foreach (var groupInfo in groupInfos)
             {
-                _foldoutStates.TryAdd(animInfo.Name, false);
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                EditorGUILayout.LabelField(groupInfo.Name, EditorStyles.boldLabel);
 
-                EditorGUILayout.BeginHorizontal();
-                var isExpanded = EditorGUILayout.Foldout(_foldoutStates[animInfo.Name], animInfo.Name, true);
-                _foldoutStates[animInfo.Name] = isExpanded;
-
-                GUILayout.FlexibleSpace();
-                EditorGUILayout.LabelField($"{animInfo.FrameCount} frames", EditorStyles.miniLabel,
-                    GUILayout.Width(80));
-                EditorGUILayout.EndHorizontal();
-
-                if (isExpanded)
+                EditorGUI.indentLevel++;
+                foreach (var animInfo in groupInfo.Animations)
                 {
-                    EditorGUI.indentLevel++;
-                    EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-
-                    if (animInfo.SecondaryTextures != null && animInfo.SecondaryTextures.Count > 0)
-                        EditorGUILayout.LabelField(
-                            $"Secondary Textures: {string.Join(", ", animInfo.SecondaryTextures)}");
-                    else
-                        EditorGUILayout.LabelField("Secondary Textures: None");
-
-                    EditorGUILayout.Space(5);
-
-                    SerializedProperty animSetting;
-                    if (!settingsDict.TryGetValue(animInfo.Name, out animSetting))
-                    {
-                        _animationSettings.arraySize++;
-                        animSetting = _animationSettings.GetArrayElementAtIndex(_animationSettings.arraySize - 1);
-                        animSetting.FindPropertyRelative("AnimationName").stringValue = animInfo.Name;
-                        animSetting.FindPropertyRelative("FramesPerSecond").floatValue = -1f;
-                        animSetting.FindPropertyRelative("LoopTime").boolValue = true;
-                        settingsDict[animInfo.Name] = animSetting;
-                    }
-
-                    var fpsProp = animSetting.FindPropertyRelative("FramesPerSecond");
-                    var loopProp = animSetting.FindPropertyRelative("LoopTime");
-
-                    var currentFps = fpsProp.floatValue;
-                    var hasOverride = currentFps >= 0f;
-                    var defaultFps = _framesPerSecond.floatValue;
-
-                    EditorGUILayout.BeginHorizontal();
-
-                    EditorGUI.BeginChangeCheck();
-                    var newHasOverride =
-                        EditorGUILayout.Toggle("Override FPS", hasOverride, GUILayout.ExpandWidth(false));
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        if (newHasOverride)
-                        {
-                            if (currentFps < 0f)
-                            {
-                                fpsProp.floatValue = defaultFps;
-                                currentFps = defaultFps;
-                                hasOverride = true;
-                            }
-                        }
-                        else
-                        {
-                            fpsProp.floatValue = -1f;
-                            hasOverride = false;
-                        }
-                    }
-
-                    if (hasOverride)
-                    {
-                        EditorGUI.BeginChangeCheck();
-                        var newFps = EditorGUILayout.FloatField(currentFps, GUILayout.Width(100));
-                        if (EditorGUI.EndChangeCheck())
-                        {
-                            if (newFps > 0f)
-                            {
-                                fpsProp.floatValue = newFps;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        EditorGUI.BeginDisabledGroup(true);
-                        EditorGUILayout.FloatField(defaultFps, GUILayout.Width(100));
-                        EditorGUI.EndDisabledGroup();
-                    }
-
-                    GUILayout.FlexibleSpace();
-                    EditorGUILayout.EndHorizontal();
-
-                    EditorGUILayout.PropertyField(loopProp, new GUIContent("Loop Time"));
-
-                    EditorGUILayout.EndVertical();
-                    EditorGUI.indentLevel--;
+                    DrawAnimationInfo(animInfo, settingsDict);
                 }
 
+                EditorGUI.indentLevel--;
+
+                EditorGUILayout.EndVertical();
                 EditorGUILayout.Space(2);
             }
+        }
 
-            EditorGUI.indentLevel--;
+        private void DrawAnimationInfo(AnimationInfo animInfo, Dictionary<string, SerializedProperty> settingsDict)
+        {
+            _foldoutStates.TryAdd(animInfo.Name, false);
+
+            EditorGUILayout.BeginHorizontal();
+            var isExpanded = EditorGUILayout.Foldout(_foldoutStates[animInfo.Name], animInfo.Name, true);
+            _foldoutStates[animInfo.Name] = isExpanded;
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.LabelField($"{animInfo.FrameCount} frames", EditorStyles.miniLabel,
+                GUILayout.Width(80));
+            EditorGUILayout.EndHorizontal();
+
+            if (isExpanded)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+                EditorGUILayout.LabelField(
+                    animInfo.TextureTypes is { Count: > 0 }
+                        ? $"Textures: {string.Join(", ", animInfo.TextureTypes)}"
+                        : "Textures: None");
+
+                EditorGUILayout.Space(5);
+
+                if (!settingsDict.TryGetValue(animInfo.Name, out var animSetting))
+                {
+                    _animationSettings.arraySize++;
+                    animSetting = _animationSettings.GetArrayElementAtIndex(_animationSettings.arraySize - 1);
+                    animSetting.FindPropertyRelative("AnimationName").stringValue = animInfo.Name;
+                    animSetting.FindPropertyRelative("FramesPerSecond").floatValue = -1f;
+                    animSetting.FindPropertyRelative("LoopTime").boolValue = true;
+                    settingsDict[animInfo.Name] = animSetting;
+                }
+
+                var fpsProp = animSetting.FindPropertyRelative("FramesPerSecond");
+                var loopProp = animSetting.FindPropertyRelative("LoopTime");
+
+                var currentFps = fpsProp.floatValue;
+                var hasOverride = currentFps >= 0f;
+                var defaultFps = _framesPerSecond.floatValue;
+
+                EditorGUILayout.BeginHorizontal();
+
+                EditorGUI.BeginChangeCheck();
+                var newHasOverride =
+                    EditorGUILayout.Toggle("Override FPS", hasOverride, GUILayout.ExpandWidth(false));
+                if (EditorGUI.EndChangeCheck())
+                {
+                    if (newHasOverride)
+                    {
+                        if (currentFps < 0f)
+                        {
+                            fpsProp.floatValue = defaultFps;
+                            currentFps = defaultFps;
+                            hasOverride = true;
+                        }
+                    }
+                    else
+                    {
+                        fpsProp.floatValue = -1f;
+                        hasOverride = false;
+                    }
+                }
+
+                if (hasOverride)
+                {
+                    EditorGUI.BeginChangeCheck();
+                    var newFps = EditorGUILayout.FloatField(currentFps, GUILayout.Width(100));
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        if (newFps > 0f)
+                        {
+                            fpsProp.floatValue = newFps;
+                        }
+                    }
+                }
+                else
+                {
+                    EditorGUI.BeginDisabledGroup(true);
+                    EditorGUILayout.FloatField(defaultFps, GUILayout.Width(100));
+                    EditorGUI.EndDisabledGroup();
+                }
+
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.PropertyField(loopProp, new GUIContent("Loop Time"));
+
+                EditorGUILayout.EndVertical();
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space(2);
         }
     }
 }
