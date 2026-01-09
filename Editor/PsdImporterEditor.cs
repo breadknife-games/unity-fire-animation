@@ -207,9 +207,6 @@ namespace FireAnimation
                     ? $"Textures: {string.Join(", ", animInfo.TextureTypes)}"
                     : "Textures: None");
 
-            if (animInfo.HasLightBlock)
-                EditorGUILayout.LabelField("Light Block: Yes", EditorStyles.miniLabel);
-
             EditorGUILayout.Space(5);
 
             // Get or create animation settings
@@ -328,6 +325,8 @@ namespace FireAnimation
             }
         }
 
+        private const float _maxBevelWidth = 9999f;
+
         private void DrawPartSettings(SerializedProperty partSetting)
         {
             var defaultBevelWidth = _defaultBevelWidth.floatValue;
@@ -336,8 +335,8 @@ namespace FireAnimation
             var bevelProp = partSetting.FindPropertyRelative("BevelWidth");
             var smoothProp = partSetting.FindPropertyRelative("Smoothness");
 
-            DrawOverrideFloat("Bevel Width", bevelProp, defaultBevelWidth);
-            DrawOverrideSlider("Smoothness", smoothProp, defaultSmoothness, 0f, 1f);
+            DrawBevelWidthWithFullOption(bevelProp, defaultBevelWidth);
+            DrawOverrideFloat("Smoothness", smoothProp, defaultSmoothness);
         }
 
         private void DrawOverrideFloat(string label, SerializedProperty prop, float defaultValue)
@@ -358,14 +357,14 @@ namespace FireAnimation
             if (hasOverride)
             {
                 EditorGUI.BeginChangeCheck();
-                var newValue = EditorGUILayout.FloatField(prop.floatValue, GUILayout.Width(80));
+                var newValue = EditorGUILayout.FloatField(prop.floatValue, GUILayout.Width(120));
                 if (EditorGUI.EndChangeCheck() && newValue >= 0f)
                     prop.floatValue = newValue;
             }
             else
             {
                 EditorGUI.BeginDisabledGroup(true);
-                EditorGUILayout.FloatField(defaultValue, GUILayout.Width(80));
+                EditorGUILayout.FloatField(defaultValue, GUILayout.Width(120));
                 EditorGUI.EndDisabledGroup();
             }
 
@@ -373,15 +372,28 @@ namespace FireAnimation
             EditorGUILayout.EndHorizontal();
         }
 
-        private void DrawOverrideSlider(string label, SerializedProperty prop, float defaultValue, float min, float max)
+        private void DrawBevelWidthWithFullOption(SerializedProperty prop, float defaultValue)
         {
             var currentValue = prop.floatValue;
             var hasOverride = currentValue >= 0f;
+            var isFullWidth = currentValue >= _maxBevelWidth;
+
+            // Full Width checkbox
+            EditorGUI.BeginChangeCheck();
+            var newFullWidth = EditorGUILayout.Toggle("Full Width", isFullWidth);
+            if (EditorGUI.EndChangeCheck())
+            {
+                prop.floatValue = newFullWidth ? _maxBevelWidth : -1f; // -1 = no override
+            }
+
+            // Bevel Width override (disabled when Full Width is checked)
+            EditorGUI.BeginDisabledGroup(isFullWidth);
 
             EditorGUILayout.BeginHorizontal();
 
             EditorGUI.BeginChangeCheck();
-            var newHasOverride = EditorGUILayout.Toggle($"Override {label}", hasOverride, GUILayout.ExpandWidth(false));
+            var newHasOverride =
+                EditorGUILayout.Toggle("Override Bevel Width", hasOverride, GUILayout.ExpandWidth(false));
             if (EditorGUI.EndChangeCheck())
             {
                 prop.floatValue = newHasOverride ? defaultValue : -1f;
@@ -391,19 +403,21 @@ namespace FireAnimation
             if (hasOverride)
             {
                 EditorGUI.BeginChangeCheck();
-                var newValue = EditorGUILayout.Slider(prop.floatValue, min, max, GUILayout.Width(150));
-                if (EditorGUI.EndChangeCheck())
+                var newValue = EditorGUILayout.FloatField(prop.floatValue, GUILayout.Width(120));
+                if (EditorGUI.EndChangeCheck() && newValue >= 0f)
                     prop.floatValue = newValue;
             }
             else
             {
                 EditorGUI.BeginDisabledGroup(true);
-                EditorGUILayout.Slider(defaultValue, min, max, GUILayout.Width(150));
+                EditorGUILayout.FloatField(defaultValue, GUILayout.Width(120));
                 EditorGUI.EndDisabledGroup();
             }
 
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
+
+            EditorGUI.EndDisabledGroup();
         }
     }
 }
