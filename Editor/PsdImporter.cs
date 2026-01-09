@@ -20,8 +20,8 @@ namespace FireAnimation
         [SerializeField] private TextureWrapMode _wrapMode = TextureWrapMode.Clamp;
         [SerializeField] private float _framesPerSecond = 12f;
         [SerializeField] private float _defaultBevelWidth = 25f;
-        [SerializeField] private float _defaultSmoothness = 10f;
-        [SerializeField] private float _defaultEdgeSmoothness = 13f;
+        [SerializeField] private float _defaultSmoothness = 20f;
+        [SerializeField] private float _defaultEdgeSmoothness = 15f;
         [SerializeField] private float _edgeInset = 1f;
 
         [SerializeField] internal ImportMetadata Metadata;

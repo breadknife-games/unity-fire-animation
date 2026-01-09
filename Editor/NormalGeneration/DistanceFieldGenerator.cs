@@ -118,6 +118,7 @@ namespace FireAnimation.NormalGeneration
                 var current = queue.Dequeue();
                 var currentIndex = current.y * width + current.x;
                 var currentNearest = nearestEdge[currentIndex];
+                var currentIsBlack = region.BlackMask[currentIndex];
 
                 foreach (var dir in directions)
                 {
@@ -131,6 +132,13 @@ namespace FireAnimation.NormalGeneration
 
                     // Skip if not part of region
                     if (!region.RegionMask[neighborIndex])
+                        continue;
+
+                    var neighborIsBlack = region.BlackMask[neighborIndex];
+
+                    // Interior blocker logic: when exiting a blocker (black -> non-black),
+                    // the non-black pixel becomes a new edge source and stops propagation
+                    if (currentIsBlack && !neighborIsBlack)
                         continue;
 
                     // Calculate Euclidean distance from neighbor to the current pixel's nearest edge

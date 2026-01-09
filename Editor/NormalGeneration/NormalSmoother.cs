@@ -14,6 +14,7 @@ namespace FireAnimation.NormalGeneration
         /// <summary>
         /// Apply Gaussian smoothing to a region's normal map.
         /// Only smooths pixels within the bevel width - flat center pixels are untouched.
+        /// If the region is fully beveled (no flat center), applies standard smoothing to all region pixels.
         /// </summary>
         /// <param name="region">Region with generated normal map and distance field</param>
         /// <param name="bevelWidth">The bevel width - only pixels with distance less than this are smoothed</param>
@@ -26,14 +27,27 @@ namespace FireAnimation.NormalGeneration
             var width = region.Width;
             var height = region.Height;
 
-            // Create bevel mask - only pixels within bevel width participate in smoothing
-            var bevelMask = new bool[width * height];
+            // Check if region is fully beveled (no flat center exists)
+            var isFullyBeveled = bevelWidth > 9000;
+
+            // Create smoothing mask
+            // If fully beveled: smooth ALL region pixels (standard smoothing)
+            // If not: only smooth bevel pixels (edge-aware smoothing)
+            var smoothMask = new bool[width * height];
             for (var i = 0; i < region.DistanceField.Length; i++)
             {
-                // Pixel is in bevel zone if it's in the region and distance < bevelWidth
-                bevelMask[i] = region.RegionMask[i] &&
-                               region.DistanceField[i] < bevelWidth &&
-                               region.DistanceField[i] < DistanceFieldGenerator.Infinity;
+                if (isFullyBeveled)
+                {
+                    // Full smoothing: include all region pixels
+                    smoothMask[i] = region.RegionMask[i];
+                }
+                else
+                {
+                    // Bevel-only smoothing: only pixels within bevel width
+                    smoothMask[i] = region.RegionMask[i] &&
+                                    region.DistanceField[i] < bevelWidth &&
+                                    region.DistanceField[i] < DistanceFieldGenerator.Infinity;
+                }
             }
 
             // Decode normals to Vector3 for proper averaging
@@ -43,11 +57,18 @@ namespace FireAnimation.NormalGeneration
                 normals[i] = DecodeNormal(region.NormalMap[i]);
             }
 
+            // For fully beveled regions: pre-flatten the peak before blurring
+            // This gives the blur something flat to propagate from
+            if (isFullyBeveled)
+            {
+                FlattenPeak(region, normals, radius * 2);
+            }
+
             // Generate Gaussian kernel
             var kernelRadius = Mathf.CeilToInt(radius * 2.5f); // 2.5 sigma covers ~99% of the distribution
             var kernel = GenerateGaussianKernel(radius, kernelRadius);
 
-            // Separable blur: horizontal pass (only on bevel pixels, only sampling bevel pixels)
+            // Separable blur: horizontal pass
             var tempNormals = new Vector3[width * height];
             for (var y = 0; y < height; y++)
             {
@@ -55,14 +76,13 @@ namespace FireAnimation.NormalGeneration
                 {
                     var index = y * width + x;
 
-                    // Only blur pixels in the bevel zone
-                    if (!bevelMask[index])
+                    if (!smoothMask[index])
                     {
                         tempNormals[index] = normals[index];
                         continue;
                     }
 
-                    tempNormals[index] = BlurPixelHorizontal(normals, bevelMask, x, y, width, kernel, kernelRadius);
+                    tempNormals[index] = BlurPixelHorizontal(normals, smoothMask, x, y, width, kernel, kernelRadius);
                 }
             }
 
@@ -74,25 +94,76 @@ namespace FireAnimation.NormalGeneration
                 {
                     var index = y * width + x;
 
-                    // Only blur pixels in the bevel zone
-                    if (!bevelMask[index])
+                    if (!smoothMask[index])
                     {
                         resultNormals[index] = tempNormals[index];
                         continue;
                     }
 
                     resultNormals[index] =
-                        BlurPixelVertical(tempNormals, bevelMask, x, y, width, height, kernel, kernelRadius);
+                        BlurPixelVertical(tempNormals, smoothMask, x, y, width, height, kernel, kernelRadius);
                 }
             }
 
-            // Encode back to Color32 - only update bevel pixels
+            // Encode back to Color32
             for (var i = 0; i < region.NormalMap.Length; i++)
             {
-                if (bevelMask[i])
+                if (smoothMask[i])
                 {
                     region.NormalMap[i] = EncodeNormal(resultNormals[i]);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Pre-flatten the peak of a fully beveled region before blurring.
+        /// Sets pixels at/near max distance to flat normal, giving the blur
+        /// something to propagate from to eliminate the harsh center point.
+        /// </summary>
+        private static void FlattenPeak(LightingRegion region, Vector3[] normals, float fadeRadius)
+        {
+            // Find max distance in the region (the peak)
+            var maxDistance = 0f;
+            for (var i = 0; i < region.DistanceField.Length; i++)
+            {
+                if (!region.RegionMask[i])
+                    continue;
+
+                var dist = region.DistanceField[i];
+                if (dist < DistanceFieldGenerator.Infinity && dist > maxDistance)
+                {
+                    maxDistance = dist;
+                }
+            }
+
+            if (maxDistance <= 0f)
+                return;
+
+            // Fade toward flat for pixels near the peak
+            // fadeRadius controls how far from the peak the fade extends
+            for (var i = 0; i < region.DistanceField.Length; i++)
+            {
+                if (!region.RegionMask[i])
+                    continue;
+
+                var distance = region.DistanceField[i];
+                if (distance >= DistanceFieldGenerator.Infinity)
+                    continue;
+
+                // How far from the peak is this pixel?
+                var distFromPeak = maxDistance - distance;
+
+                // Only affect pixels within fadeRadius of the peak
+                if (distFromPeak > fadeRadius)
+                    continue;
+
+                // t = 0 at peak (full flat), t = 1 at fadeRadius (keep original)
+                var t = distFromPeak / fadeRadius;
+                t = Mathf.Clamp01(t);
+                t = SmoothStep(t);
+
+                // Blend toward flat
+                normals[i] = Vector3.Lerp(FlatNormal, normals[i], t).normalized;
             }
         }
 
