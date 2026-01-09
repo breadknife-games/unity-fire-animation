@@ -74,7 +74,7 @@ namespace FireAnimation.NormalGeneration
                     frameHeight);
             }
 
-            var atlas = new Texture2D(atlasWidth, atlasHeight, TextureFormat.RGBA32, false)
+            var atlas = new Texture2D(atlasWidth, atlasHeight, TextureFormat.RGBA32, false, linear: true)
             {
                 filterMode = settings.FilterMode,
                 wrapMode = settings.WrapMode,
