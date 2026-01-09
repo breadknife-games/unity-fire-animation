@@ -35,12 +35,14 @@ namespace FireAnimation.NormalGeneration
         /// <param name="sourceWidth">Full texture width</param>
         /// <param name="sourceHeight">Full texture height</param>
         /// <param name="maxDistance">Maximum distance to propagate (bevel width clamp)</param>
+        /// <param name="edgeInset">Starting distance for edge pixels (pushes bevel inward)</param>
         public static void ComputeDistanceField(
             LightingRegion region,
             NativeArray<Color32> sourcePixels,
             int sourceWidth,
             int sourceHeight,
-            float maxDistance = float.MaxValue)
+            float maxDistance = float.MaxValue,
+            float edgeInset = 0f)
         {
             var width = region.Width;
             var height = region.Height;
@@ -83,7 +85,7 @@ namespace FireAnimation.NormalGeneration
                     if (IsAdjacentToEdge(globalX, globalY, sourcePixels, sourceWidth, sourceHeight))
                     {
                         region.EdgeMask[localIndex] = true;
-                        region.DistanceField[localIndex] = 0f;
+                        region.DistanceField[localIndex] = edgeInset;
                         nearestEdge[localIndex] = new Vector2Int(localX, localY);
                         edgeSources.Add(new Vector2Int(localX, localY));
                     }
@@ -153,7 +155,7 @@ namespace FireAnimation.NormalGeneration
 
         /// <summary>
         /// Check if a global pixel position is adjacent to an edge.
-        /// An edge is defined as a transition to transparent (alpha == 0) or out of bounds.
+        /// An edge is defined as a transition to non-fully-opaque (alpha less than 255) or out of bounds.
         /// </summary>
         private static bool IsAdjacentToEdge(
             int globalX,
@@ -182,8 +184,8 @@ namespace FireAnimation.NormalGeneration
                 var neighborIndex = ny * sourceWidth + nx;
                 var neighborPixel = sourcePixels[neighborIndex];
 
-                // Adjacent to transparent pixel = edge
-                if (neighborPixel.a == 0)
+                // Adjacent to non-fully-opaque pixel = edge
+                if (neighborPixel.a < 255)
                     return true;
             }
 

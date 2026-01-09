@@ -15,6 +15,7 @@ namespace FireAnimation.NormalGeneration
         {
             public float DefaultBevelWidth;
             public float DefaultSmoothness;
+            public float EdgeInset;
             public FilterMode FilterMode;
             public TextureWrapMode WrapMode;
             public Dictionary<string, SpritePartSettings> PartSettings;
@@ -156,6 +157,7 @@ namespace FireAnimation.NormalGeneration
                         documentHeight,
                         bevelWidth,
                         smoothness,
+                        settings.EdgeInset,
                         out _);
 
                     if (normals != null)

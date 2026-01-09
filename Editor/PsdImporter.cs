@@ -21,6 +21,7 @@ namespace FireAnimation
         [SerializeField] private float _framesPerSecond = 12f;
         [SerializeField] private float _defaultBevelWidth = 25f;
         [SerializeField] private float _defaultSmoothness = 10f;
+        [SerializeField] private float _edgeInset = 1f;
 
         [SerializeField] internal ImportMetadata Metadata;
         [SerializeField] private List<AnimationSettings> _animationSettings = new List<AnimationSettings>();
@@ -401,6 +402,7 @@ namespace FireAnimation
             {
                 DefaultBevelWidth = _defaultBevelWidth,
                 DefaultSmoothness = _defaultSmoothness,
+                EdgeInset = _edgeInset,
                 FilterMode = _filterMode,
                 WrapMode = _wrapMode,
                 PartSettings = partSettingsDict

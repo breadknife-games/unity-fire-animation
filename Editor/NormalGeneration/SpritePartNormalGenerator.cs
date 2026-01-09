@@ -19,6 +19,7 @@ namespace FireAnimation.NormalGeneration
         /// <param name="height">Document height</param>
         /// <param name="bevelWidth">How far the bevel extends inward</param>
         /// <param name="smoothness">Blur radius for normal smoothing (0 = no smoothing)</param>
+        /// <param name="edgeInset">Distance inward from edge where normals start (0 = at edge)</param>
         /// <param name="outRegion">Optional: outputs the region for debug visualization</param>
         /// <returns>Normal map as Color32 array (document-sized)</returns>
         public static Color32[] GeneratePartNormals(
@@ -28,6 +29,7 @@ namespace FireAnimation.NormalGeneration
             int height,
             float bevelWidth,
             float smoothness,
+            float edgeInset,
             out LightingRegion outRegion)
         {
             // Create a single region covering the entire document
@@ -43,7 +45,8 @@ namespace FireAnimation.NormalGeneration
                 partPixels,
                 width,
                 height,
-                bevelWidth);
+                bevelWidth,
+                edgeInset);
 
             // Generate normals
             NormalMapGenerator.GenerateNormals(region, bevelWidth);
@@ -88,7 +91,7 @@ namespace FireAnimation.NormalGeneration
 
         /// <summary>
         /// Create a LightingRegion from part pixels.
-        /// Region = any pixel with alpha > 0
+        /// Region = fully opaque pixels only (alpha == 255)
         /// BlackMask = pixels where LightBlock has alpha > 0
         /// </summary>
         private static LightingRegion CreateRegionFromPart(
@@ -99,7 +102,7 @@ namespace FireAnimation.NormalGeneration
         {
             var hasLightBlock = lightBlockPixels.IsCreated && lightBlockPixels.Length == width * height;
 
-            // Find bounding box of non-transparent pixels
+            // Find bounding box of fully opaque pixels
             var minX = width;
             var maxX = 0;
             var minY = height;
@@ -111,7 +114,7 @@ namespace FireAnimation.NormalGeneration
                 for (var x = 0; x < width; x++)
                 {
                     var index = y * width + x;
-                    if (partPixels[index].a > 0)
+                    if (partPixels[index].a == 255)
                     {
                         minX = Mathf.Min(minX, x);
                         maxX = Mathf.Max(maxX, x);
@@ -145,8 +148,8 @@ namespace FireAnimation.NormalGeneration
                     var globalIndex = globalY * width + globalX;
                     var localIndex = localY * bounds.width + localX;
 
-                    // Part of region if alpha > 0
-                    if (partPixels[globalIndex].a > 0)
+                    // Part of region if fully opaque
+                    if (partPixels[globalIndex].a == 255)
                     {
                         region.RegionMask[localIndex] = true;
 

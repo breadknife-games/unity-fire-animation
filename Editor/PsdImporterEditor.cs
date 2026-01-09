@@ -17,6 +17,7 @@ namespace FireAnimation
         private SerializedProperty _framesPerSecond;
         private SerializedProperty _defaultBevelWidth;
         private SerializedProperty _defaultSmoothness;
+        private SerializedProperty _edgeInset;
         private SerializedProperty _animationSettings;
         private SerializedProperty _groupPartSettings;
 
@@ -39,6 +40,7 @@ namespace FireAnimation
             _framesPerSecond = serializedObject.FindProperty("_framesPerSecond");
             _defaultBevelWidth = serializedObject.FindProperty("_defaultBevelWidth");
             _defaultSmoothness = serializedObject.FindProperty("_defaultSmoothness");
+            _edgeInset = serializedObject.FindProperty("_edgeInset");
             _animationSettings = serializedObject.FindProperty("_animationSettings");
             _groupPartSettings = serializedObject.FindProperty("_groupPartSettings");
 
@@ -119,6 +121,8 @@ namespace FireAnimation
             EditorGUILayout.LabelField("Default Normal Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(_defaultBevelWidth, new GUIContent("Default Bevel Width"));
             EditorGUILayout.PropertyField(_defaultSmoothness, new GUIContent("Default Smoothness"));
+            EditorGUILayout.PropertyField(_edgeInset,
+                new GUIContent("Edge Inset", "Distance inward from edge where normals start (reduces fringing)"));
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("GameObject Groups", EditorStyles.boldLabel);
