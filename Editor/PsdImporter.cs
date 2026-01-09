@@ -15,12 +15,12 @@ namespace FireAnimation
     public class PsdImporter : ScriptedImporter
     {
         [SerializeField] private int _pixelsPerUnit = 100;
-        [SerializeField] private FilterMode _filterMode = FilterMode.Point;
+        [SerializeField] private FilterMode _filterMode = FilterMode.Bilinear;
         [SerializeField] private SpriteMeshType _spriteMeshType = SpriteMeshType.FullRect;
         [SerializeField] private TextureWrapMode _wrapMode = TextureWrapMode.Clamp;
         [SerializeField] private float _framesPerSecond = 12f;
-        [SerializeField] private float _defaultBevelWidth = 3f;
-        [SerializeField] private float _defaultSmoothness = 0.5f;
+        [SerializeField] private float _defaultBevelWidth = 25f;
+        [SerializeField] private float _defaultSmoothness = 10f;
 
         [SerializeField] internal ImportMetadata Metadata;
         [SerializeField] private List<AnimationSettings> _animationSettings = new List<AnimationSettings>();

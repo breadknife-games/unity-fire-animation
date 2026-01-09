@@ -128,11 +128,15 @@ namespace FireAnimation.NormalGeneration
                         continue;
 
                     var bevelWidth = settings.DefaultBevelWidth;
+                    var smoothness = settings.DefaultSmoothness;
+
                     if (settings.PartSettings != null &&
-                        settings.PartSettings.TryGetValue(part.Name, out var partSetting) &&
-                        partSetting.BevelWidth >= 0)
+                        settings.PartSettings.TryGetValue(part.Name, out var partSetting))
                     {
-                        bevelWidth = partSetting.BevelWidth;
+                        if (partSetting.BevelWidth >= 0)
+                            bevelWidth = partSetting.BevelWidth;
+                        if (partSetting.Smoothness >= 0)
+                            smoothness = partSetting.Smoothness;
                     }
 
                     using var partPixels = new NativeArray<Color32>(
@@ -151,6 +155,7 @@ namespace FireAnimation.NormalGeneration
                         documentWidth,
                         documentHeight,
                         bevelWidth,
+                        smoothness,
                         out _);
 
                     if (normals != null)

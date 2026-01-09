@@ -18,6 +18,7 @@ namespace FireAnimation.NormalGeneration
         /// <param name="width">Document width</param>
         /// <param name="height">Document height</param>
         /// <param name="bevelWidth">How far the bevel extends inward</param>
+        /// <param name="smoothness">Blur radius for normal smoothing (0 = no smoothing)</param>
         /// <param name="outRegion">Optional: outputs the region for debug visualization</param>
         /// <returns>Normal map as Color32 array (document-sized)</returns>
         public static Color32[] GeneratePartNormals(
@@ -26,6 +27,7 @@ namespace FireAnimation.NormalGeneration
             int width,
             int height,
             float bevelWidth,
+            float smoothness,
             out LightingRegion outRegion)
         {
             // Create a single region covering the entire document
@@ -45,6 +47,13 @@ namespace FireAnimation.NormalGeneration
 
             // Generate normals
             NormalMapGenerator.GenerateNormals(region, bevelWidth);
+
+            // Apply smoothing (per-part, before combining)
+            // Only smooths within bevel zone - preserves hard edge at bevel boundary
+            if (smoothness > 0f)
+            {
+                NormalSmoother.SmoothNormals(region, bevelWidth, smoothness);
+            }
 
             // Convert to full document-sized array
             var result = new Color32[width * height];
