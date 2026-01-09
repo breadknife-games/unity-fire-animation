@@ -52,7 +52,7 @@ namespace FireAnimation
                     if (frame.BitmapLayers == null || frame.BitmapLayers.Count == 0)
                         continue;
 
-                    var bounds = LayerMerger.CalculateMergedBounds(frame.BitmapLayers);
+                    var bounds = LayerMerger.CalculateMergedBounds(frame.BitmapLayers, documentHeight);
                     maxWidth = Math.Max(maxWidth, bounds.width);
                     maxHeight = Math.Max(maxHeight, bounds.height);
                 }
@@ -84,7 +84,7 @@ namespace FireAnimation
             var hasValidFrames = false;
             foreach (var frame in frames)
             {
-                if (frame.BitmapLayers != null && frame.BitmapLayers.Count > 0)
+                if (frame.BitmapLayers is { Count: > 0 })
                 {
                     hasValidFrames = true;
                     break;

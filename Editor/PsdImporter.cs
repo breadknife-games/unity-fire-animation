@@ -19,6 +19,8 @@ namespace FireAnimation
         [SerializeField] private SpriteMeshType _spriteMeshType = SpriteMeshType.FullRect;
         [SerializeField] private TextureWrapMode _wrapMode = TextureWrapMode.Clamp;
         [SerializeField] private float _framesPerSecond = 12f;
+        [SerializeField] private float _defaultBevelWidth = 3f;
+        [SerializeField] private float _defaultSmoothness = 0.5f;
 
         [SerializeField] internal ImportMetadata Metadata;
         [SerializeField] private List<AnimationSettings> _animationSettings = new List<AnimationSettings>();
@@ -153,26 +155,16 @@ namespace FireAnimation
             var secondaryTextureDataList = new List<FireAnimationAsset.SecondaryTextureData>();
             var secondarySpriteTextures = new List<SecondarySpriteTexture>();
 
-            // Generate atlases for all secondary textures
+            // Generate atlases for secondary textures that have shader property names
             foreach (var texture in secondaryTextures)
             {
                 if (texture.Frames.Count == 0)
                     continue;
 
-                // LightingRegion requires special processing
-                if (texture.Type == TextureType.LightingRegion)
-                {
-                    ProcessLightingRegionTexture(
-                        ctx,
-                        animation.Name,
-                        texture,
-                        dimensions.FrameCount,
-                        documentWidth,
-                        documentHeight,
-                        secondaryTextureDataList,
-                        secondarySpriteTextures);
+                // Skip textures that shouldn't be added as sprite secondary textures
+                var shaderPropertyName = TextureTypeHelper.GetShaderPropertyName(texture.Type);
+                if (string.IsNullOrEmpty(shaderPropertyName))
                     continue;
-                }
 
                 var result = TextureAtlasGenerator.GenerateTextureAtlas(
                     ctx,
@@ -186,7 +178,6 @@ namespace FireAnimation
 
                 if (result.Texture != null)
                 {
-                    var shaderPropertyName = TextureTypeHelper.GetShaderPropertyName(texture.Type);
                     secondaryTextureDataList.Add(new FireAnimationAsset.SecondaryTextureData
                     {
                         Name = shaderPropertyName,
@@ -198,6 +189,23 @@ namespace FireAnimation
                         texture = result.Texture
                     });
                 }
+            }
+
+            var normalAtlas = GenerateNormalAtlas(ctx, animation, dimensions, documentWidth, documentHeight);
+
+            if (normalAtlas != null)
+            {
+                var normalShaderName = TextureTypeHelper.GetShaderPropertyName(TextureType.Normal);
+                secondaryTextureDataList.Add(new FireAnimationAsset.SecondaryTextureData
+                {
+                    Name = normalShaderName,
+                    Texture = normalAtlas
+                });
+                secondarySpriteTextures.Add(new SecondarySpriteTexture
+                {
+                    name = normalShaderName,
+                    texture = normalAtlas
+                });
             }
 
             // Create sprites from the albedo atlas
@@ -265,58 +273,98 @@ namespace FireAnimation
             {
                 foreach (var animation in group.Animations)
                 {
+                    AnimationSettings settings;
                     if (existingSettings.TryGetValue(animation.Name, out var existing))
                     {
-                        newSettings.Add(existing);
+                        settings = existing;
                     }
                     else
                     {
-                        newSettings.Add(new AnimationSettings
+                        settings = new AnimationSettings
                         {
                             AnimationName = animation.Name,
                             FramesPerSecond = -1f,
-                            LoopTime = true
-                        });
+                            LoopTime = true,
+                            PartSettings = new List<SpritePartSettings>()
+                        };
                     }
+
+                    // Ensure part settings are initialized for all parts
+                    InitializePartSettings(settings, animation.Parts);
+                    newSettings.Add(settings);
                 }
             }
 
             _animationSettings = newSettings;
         }
 
-        private void ProcessLightingRegionTexture(
-            AssetImportContext ctx,
-            string animationName,
-            AnimationTexture lightingRegionTexture,
-            int frameCount,
-            int documentWidth,
-            int documentHeight,
-            List<FireAnimationAsset.SecondaryTextureData> secondaryTextureDataList,
-            List<SecondarySpriteTexture> secondarySpriteTextures)
+        private void InitializePartSettings(AnimationSettings settings, List<SpritePart> parts)
         {
-            var textures = new List<AnimationTexture> { lightingRegionTexture };
+            settings.PartSettings ??= new List<SpritePartSettings>();
 
-            // Process each frame
-            for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
+            var existingPartSettings = new Dictionary<string, SpritePartSettings>();
+            foreach (var partSetting in settings.PartSettings)
             {
-                var debugTexture = LightingRegionProcessor.ProcessLightingRegions(
-                    ctx,
-                    animationName,
-                    textures,
-                    documentWidth,
-                    documentHeight,
-                    frameIndex);
+                if (!string.IsNullOrEmpty(partSetting.PartName))
+                    existingPartSettings[partSetting.PartName] = partSetting;
+            }
 
-                if (debugTexture != null)
+            var newPartSettings = new List<SpritePartSettings>();
+            foreach (var part in parts)
+            {
+                if (existingPartSettings.TryGetValue(part.Name, out var existing))
                 {
-                    // For now, add as a debug texture
-                    // Later this will be replaced with proper normal map generation
-                    // and added to the secondary textures for sprite rendering
-                    ctx.LogImportWarning(
-                        $"Generated debug distance field texture for {animationName} frame {frameIndex}: " +
-                        $"{debugTexture.width}x{debugTexture.height}");
+                    newPartSettings.Add(existing);
+                }
+                else
+                {
+                    newPartSettings.Add(new SpritePartSettings
+                    {
+                        PartName = part.Name,
+                        BevelWidth = -1f,
+                        Smoothness = -1f
+                    });
                 }
             }
+
+            settings.PartSettings = newPartSettings;
+        }
+
+        private Texture2D GenerateNormalAtlas(
+            AssetImportContext ctx,
+            SpriteAnimation animation,
+            UnifiedDimensions dimensions,
+            int documentWidth,
+            int documentHeight)
+        {
+            // Build part settings dictionary
+            var animSettings = _animationSettings.FirstOrDefault(s => s.AnimationName == animation.Name);
+            var partSettingsDict = new Dictionary<string, SpritePartSettings>();
+            if (animSettings?.PartSettings != null)
+            {
+                foreach (var ps in animSettings.PartSettings)
+                {
+                    if (!string.IsNullOrEmpty(ps.PartName))
+                        partSettingsDict[ps.PartName] = ps;
+                }
+            }
+
+            var settings = new NormalAtlasGenerator.NormalAtlasSettings
+            {
+                DefaultBevelWidth = _defaultBevelWidth,
+                DefaultSmoothness = _defaultSmoothness,
+                FilterMode = _filterMode,
+                WrapMode = _wrapMode,
+                PartSettings = partSettingsDict
+            };
+
+            return NormalAtlasGenerator.GenerateNormalAtlas(
+                ctx,
+                animation,
+                dimensions,
+                documentWidth,
+                documentHeight,
+                settings);
         }
     }
 }

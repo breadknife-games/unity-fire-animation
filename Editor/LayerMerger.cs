@@ -9,6 +9,9 @@ namespace FireAnimation
 {
     internal static class LayerMerger
     {
+        /// <summary>
+        /// Merge layers into a single buffer in Unity coordinate space (Y=0 at bottom).
+        /// </summary>
         public static void MergeLayers(
             IReadOnlyList<BitmapLayer> layers,
             int documentWidth,
@@ -16,7 +19,7 @@ namespace FireAnimation
             NativeArray<Color32> outputBuffer,
             out RectInt bounds)
         {
-            bounds = CalculateMergedBounds(layers);
+            bounds = CalculateMergedBounds(layers, documentHeight);
 
             if (bounds.width <= 0 || bounds.height <= 0)
             {
@@ -67,7 +70,7 @@ namespace FireAnimation
 
             outputWidth = bounds.width;
             outputHeight = bounds.height;
-            pivotOffset = new Vector2(bounds.x, documentHeight - bounds.y - bounds.height);
+            pivotOffset = new Vector2(bounds.x, bounds.y);
 
             var croppedBuffer = new NativeArray<Color32>(outputWidth * outputHeight, Allocator.Persistent);
 
@@ -78,14 +81,13 @@ namespace FireAnimation
 
                 for (var y = 0; y < outputHeight; y++)
                 {
-                    var srcY = bounds.y + (outputHeight - 1 - y);
-                    var dstY = y;
+                    var srcY = bounds.y + y;
 
                     for (var x = 0; x < outputWidth; x++)
                     {
                         var srcX = bounds.x + x;
                         var srcIndex = srcY * documentWidth + srcX;
-                        var dstIndex = dstY * outputWidth + x;
+                        var dstIndex = y * outputWidth + x;
 
                         dstPtr[dstIndex] = srcPtr[srcIndex];
                     }
@@ -95,7 +97,12 @@ namespace FireAnimation
             return croppedBuffer;
         }
 
-        public static RectInt CalculateMergedBounds(IReadOnlyList<BitmapLayer> layers)
+        /// <summary>
+        /// Calculate merged bounds of layers.
+        /// Returns bounds in Unity coordinate space (Y=0 at bottom).
+        /// Requires documentHeight to flip Y coordinates.
+        /// </summary>
+        public static RectInt CalculateMergedBounds(IReadOnlyList<BitmapLayer> layers, int documentHeight)
         {
             var minX = int.MaxValue;
             var minY = int.MaxValue;
@@ -110,10 +117,17 @@ namespace FireAnimation
                     continue;
 
                 var rect = layer.documentRect;
+
+                // Flip Y: document Y -> Unity Y
+                var docTop = rect.Y;
+                var docBottom = rect.Y + rect.Height;
+                var unityBottom = documentHeight - docBottom;
+                var unityTop = documentHeight - docTop;
+
                 minX = Math.Min(minX, rect.X);
-                minY = Math.Min(minY, rect.Y);
                 maxX = Math.Max(maxX, rect.X + rect.Width);
-                maxY = Math.Max(maxY, rect.Y + rect.Height);
+                minY = Math.Min(minY, unityBottom);
+                maxY = Math.Max(maxY, unityTop);
                 hasValidLayer = true;
             }
 
@@ -145,6 +159,8 @@ namespace FireAnimation
                 if (docY < 0 || docY >= documentHeight)
                     continue;
 
+                var unityY = documentHeight - 1 - docY;
+
                 for (var lx = 0; lx < layerWidth; lx++)
                 {
                     var docX = layerRect.X + lx;
@@ -152,7 +168,7 @@ namespace FireAnimation
                         continue;
 
                     var srcIndex = ly * layerWidth + lx;
-                    var dstIndex = docY * documentWidth + docX;
+                    var dstIndex = unityY * documentWidth + docX;
 
                     var src = srcPtr[srcIndex];
                     var dst = dstPtr[dstIndex];

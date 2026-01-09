@@ -22,13 +22,14 @@ namespace FireAnimation
     }
 
     /// <summary>
-    /// A single animation (e.g., run, walk, idle) containing textures of different types.
+    /// A single animation (e.g., run, walk, idle) containing textures and sprite parts.
     /// </summary>
     [Serializable]
     public class SpriteAnimation
     {
         public string Name;
         public List<AnimationTexture> Textures = new List<AnimationTexture>();
+        public List<SpritePart> Parts = new List<SpritePart>();
     }
 
     public enum TextureType
@@ -36,12 +37,12 @@ namespace FireAnimation
         Unknown,
         Albedo,
         Normal,
-        LightingRegion
+        LightBlock
     }
 
     /// <summary>
     /// A texture of a specific type (Albedo, Normal, etc.) for an animation.
-    /// Multiple source textures of the same type are merged into one.
+    /// Represents final/merged texture data.
     /// </summary>
     [Serializable]
     public class AnimationTexture
@@ -51,7 +52,18 @@ namespace FireAnimation
     }
 
     /// <summary>
-    /// A single frame within an animation texture, containing layer data to be merged.
+    /// A distinct piece of the sprite, parsed from a gray layer group.
+    /// Each part generates its own normal map which is then merged.
+    /// </summary>
+    [Serializable]
+    public class SpritePart
+    {
+        public string Name;
+        public List<AnimationFrame> Frames = new List<AnimationFrame>();
+    }
+
+    /// <summary>
+    /// A single frame containing layer data to be merged.
     /// </summary>
     [Serializable]
     public class AnimationFrame
@@ -61,11 +73,23 @@ namespace FireAnimation
         [NonSerialized] internal List<BitmapLayer> BitmapLayers;
     }
 
+    /// <summary>
+    /// Per-part settings for normal generation (bevel, smoothness).
+    /// </summary>
+    [Serializable]
+    public class SpritePartSettings
+    {
+        public string PartName;
+        public float BevelWidth = -1f; // -1 = use default
+        public float Smoothness = -1f; // -1 = use default
+    }
+
     [Serializable]
     public class AnimationSettings
     {
         public string AnimationName;
         public float FramesPerSecond = -1f;
         public bool LoopTime = true;
+        public List<SpritePartSettings> PartSettings = new List<SpritePartSettings>();
     }
 }

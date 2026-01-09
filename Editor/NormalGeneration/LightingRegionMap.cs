@@ -17,11 +17,6 @@ namespace FireAnimation.NormalGeneration
         public string Name { get; set; }
 
         /// <summary>
-        /// Layer order for composition. Lower = further back.
-        /// </summary>
-        public int LayerOrder { get; set; }
-
-        /// <summary>
         /// Width of the source texture.
         /// </summary>
         public int Width { get; set; }

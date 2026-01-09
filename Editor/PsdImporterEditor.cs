@@ -14,6 +14,8 @@ namespace FireAnimation
         private SerializedProperty _spriteMeshType;
         private SerializedProperty _wrapMode;
         private SerializedProperty _framesPerSecond;
+        private SerializedProperty _defaultBevelWidth;
+        private SerializedProperty _defaultSmoothness;
         private SerializedProperty _animationSettings;
 
         private readonly Dictionary<string, bool> _foldoutStates = new Dictionary<string, bool>();
@@ -26,6 +28,8 @@ namespace FireAnimation
             _spriteMeshType = serializedObject.FindProperty("_spriteMeshType");
             _wrapMode = serializedObject.FindProperty("_wrapMode");
             _framesPerSecond = serializedObject.FindProperty("_framesPerSecond");
+            _defaultBevelWidth = serializedObject.FindProperty("_defaultBevelWidth");
+            _defaultSmoothness = serializedObject.FindProperty("_defaultSmoothness");
             _animationSettings = serializedObject.FindProperty("_animationSettings");
         }
 
@@ -40,6 +44,11 @@ namespace FireAnimation
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Default Animation Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(_framesPerSecond, new GUIContent("Default Frames Per Second"));
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Default Normal Settings", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(_defaultBevelWidth, new GUIContent("Default Bevel Width"));
+            EditorGUILayout.PropertyField(_defaultSmoothness, new GUIContent("Default Smoothness"));
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("GameObject Groups", EditorStyles.boldLabel);
@@ -63,17 +72,24 @@ namespace FireAnimation
             ApplyRevertGUI();
         }
 
+        private class PartInfo
+        {
+            public string Name;
+            public int FrameCount;
+        }
+
         private class AnimationInfo
         {
             public string Name;
             public int FrameCount;
             public List<string> TextureTypes;
+            public List<PartInfo> Parts;
+            public bool HasLightBlock;
         }
 
         private class GroupInfo
         {
             public string Name;
-            public LayerColor Color;
             public List<AnimationInfo> Animations;
         }
 
@@ -87,7 +103,6 @@ namespace FireAnimation
                 var groupInfo = new GroupInfo
                 {
                     Name = group.Name,
-                    Color = group.Color,
                     Animations = new List<AnimationInfo>()
                 };
 
@@ -99,18 +114,28 @@ namespace FireAnimation
                     foreach (var texture in anim.Textures)
                     {
                         if (texture.Type == TextureType.Albedo)
-                        {
                             frameCount = texture.Frames?.Count ?? 0;
-                        }
 
                         textureTypes.Add(TextureTypeHelper.GetDisplayName(texture.Type));
+                    }
+
+                    var parts = new List<PartInfo>();
+                    foreach (var part in anim.Parts)
+                    {
+                        parts.Add(new PartInfo
+                        {
+                            Name = part.Name,
+                            FrameCount = part.Frames?.Count ?? 0
+                        });
                     }
 
                     groupInfo.Animations.Add(new AnimationInfo
                     {
                         Name = anim.Name,
                         FrameCount = frameCount,
-                        TextureTypes = textureTypes
+                        TextureTypes = textureTypes,
+                        Parts = parts,
+                        HasLightBlock = anim.Textures.Exists(t => t.Type == TextureType.LightBlock)
                     });
                 }
 
@@ -167,87 +192,218 @@ namespace FireAnimation
                 GUILayout.Width(80));
             EditorGUILayout.EndHorizontal();
 
-            if (isExpanded)
+            if (!isExpanded)
             {
-                EditorGUI.indentLevel++;
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-
-                EditorGUILayout.LabelField(
-                    animInfo.TextureTypes is { Count: > 0 }
-                        ? $"Textures: {string.Join(", ", animInfo.TextureTypes)}"
-                        : "Textures: None");
-
-                EditorGUILayout.Space(5);
-
-                if (!settingsDict.TryGetValue(animInfo.Name, out var animSetting))
-                {
-                    _animationSettings.arraySize++;
-                    animSetting = _animationSettings.GetArrayElementAtIndex(_animationSettings.arraySize - 1);
-                    animSetting.FindPropertyRelative("AnimationName").stringValue = animInfo.Name;
-                    animSetting.FindPropertyRelative("FramesPerSecond").floatValue = -1f;
-                    animSetting.FindPropertyRelative("LoopTime").boolValue = true;
-                    settingsDict[animInfo.Name] = animSetting;
-                }
-
-                var fpsProp = animSetting.FindPropertyRelative("FramesPerSecond");
-                var loopProp = animSetting.FindPropertyRelative("LoopTime");
-
-                var currentFps = fpsProp.floatValue;
-                var hasOverride = currentFps >= 0f;
-                var defaultFps = _framesPerSecond.floatValue;
-
-                EditorGUILayout.BeginHorizontal();
-
-                EditorGUI.BeginChangeCheck();
-                var newHasOverride =
-                    EditorGUILayout.Toggle("Override FPS", hasOverride, GUILayout.ExpandWidth(false));
-                if (EditorGUI.EndChangeCheck())
-                {
-                    if (newHasOverride)
-                    {
-                        if (currentFps < 0f)
-                        {
-                            fpsProp.floatValue = defaultFps;
-                            currentFps = defaultFps;
-                            hasOverride = true;
-                        }
-                    }
-                    else
-                    {
-                        fpsProp.floatValue = -1f;
-                        hasOverride = false;
-                    }
-                }
-
-                if (hasOverride)
-                {
-                    EditorGUI.BeginChangeCheck();
-                    var newFps = EditorGUILayout.FloatField(currentFps, GUILayout.Width(100));
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        if (newFps > 0f)
-                        {
-                            fpsProp.floatValue = newFps;
-                        }
-                    }
-                }
-                else
-                {
-                    EditorGUI.BeginDisabledGroup(true);
-                    EditorGUILayout.FloatField(defaultFps, GUILayout.Width(100));
-                    EditorGUI.EndDisabledGroup();
-                }
-
-                GUILayout.FlexibleSpace();
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.PropertyField(loopProp, new GUIContent("Loop Time"));
-
-                EditorGUILayout.EndVertical();
-                EditorGUI.indentLevel--;
+                EditorGUILayout.Space(2);
+                return;
             }
 
+            EditorGUI.indentLevel++;
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            // Textures info
+            EditorGUILayout.LabelField(
+                animInfo.TextureTypes is { Count: > 0 }
+                    ? $"Textures: {string.Join(", ", animInfo.TextureTypes)}"
+                    : "Textures: None");
+
+            if (animInfo.HasLightBlock)
+                EditorGUILayout.LabelField("Light Block: Yes", EditorStyles.miniLabel);
+
+            EditorGUILayout.Space(5);
+
+            // Get or create animation settings
+            if (!settingsDict.TryGetValue(animInfo.Name, out var animSetting))
+            {
+                _animationSettings.arraySize++;
+                animSetting = _animationSettings.GetArrayElementAtIndex(_animationSettings.arraySize - 1);
+                animSetting.FindPropertyRelative("AnimationName").stringValue = animInfo.Name;
+                animSetting.FindPropertyRelative("FramesPerSecond").floatValue = -1f;
+                animSetting.FindPropertyRelative("LoopTime").boolValue = true;
+                settingsDict[animInfo.Name] = animSetting;
+            }
+
+            // FPS override
+            DrawFpsOverride(animSetting);
+
+            // Loop time
+            var loopProp = animSetting.FindPropertyRelative("LoopTime");
+            EditorGUILayout.PropertyField(loopProp, new GUIContent("Loop Time"));
+
+            // Parts section
+            if (animInfo.Parts is { Count: > 0 })
+            {
+                EditorGUILayout.Space(5);
+                EditorGUILayout.LabelField("Sprite Parts", EditorStyles.boldLabel);
+
+                var partSettingsProp = animSetting.FindPropertyRelative("PartSettings");
+                DrawPartsSection(animInfo.Parts, partSettingsProp);
+            }
+
+            EditorGUILayout.EndVertical();
+            EditorGUI.indentLevel--;
             EditorGUILayout.Space(2);
+        }
+
+        private void DrawFpsOverride(SerializedProperty animSetting)
+        {
+            var fpsProp = animSetting.FindPropertyRelative("FramesPerSecond");
+            var currentFps = fpsProp.floatValue;
+            var hasOverride = currentFps >= 0f;
+            var defaultFps = _framesPerSecond.floatValue;
+
+            EditorGUILayout.BeginHorizontal();
+
+            EditorGUI.BeginChangeCheck();
+            var newHasOverride = EditorGUILayout.Toggle("Override FPS", hasOverride, GUILayout.ExpandWidth(false));
+            if (EditorGUI.EndChangeCheck())
+            {
+                fpsProp.floatValue = newHasOverride ? defaultFps : -1f;
+                hasOverride = newHasOverride;
+            }
+
+            if (hasOverride)
+            {
+                EditorGUI.BeginChangeCheck();
+                var newFps = EditorGUILayout.FloatField(fpsProp.floatValue, GUILayout.Width(100));
+                if (EditorGUI.EndChangeCheck() && newFps > 0f)
+                    fpsProp.floatValue = newFps;
+            }
+            else
+            {
+                EditorGUI.BeginDisabledGroup(true);
+                EditorGUILayout.FloatField(defaultFps, GUILayout.Width(100));
+                EditorGUI.EndDisabledGroup();
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawPartsSection(List<PartInfo> parts, SerializedProperty partSettingsProp)
+        {
+            // Build lookup for existing part settings
+            var partSettingsDict = new Dictionary<string, SerializedProperty>();
+            if (partSettingsProp is { isArray: true })
+            {
+                for (var i = 0; i < partSettingsProp.arraySize; i++)
+                {
+                    var setting = partSettingsProp.GetArrayElementAtIndex(i);
+                    var nameProp = setting.FindPropertyRelative("PartName");
+                    if (nameProp != null && !string.IsNullOrEmpty(nameProp.stringValue))
+                        partSettingsDict[nameProp.stringValue] = setting;
+                }
+            }
+
+            foreach (var part in parts)
+            {
+                var partFoldoutKey = $"part_{part.Name}";
+                _foldoutStates.TryAdd(partFoldoutKey, false);
+
+                EditorGUILayout.BeginHorizontal();
+                var isPartExpanded = EditorGUILayout.Foldout(_foldoutStates[partFoldoutKey], part.Name, true);
+                _foldoutStates[partFoldoutKey] = isPartExpanded;
+
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.LabelField($"{part.FrameCount} frames", EditorStyles.miniLabel, GUILayout.Width(80));
+                EditorGUILayout.EndHorizontal();
+
+                if (!isPartExpanded)
+                    continue;
+
+                // Get or create part settings
+                if (!partSettingsDict.TryGetValue(part.Name, out var partSetting))
+                {
+                    partSettingsProp.arraySize++;
+                    partSetting = partSettingsProp.GetArrayElementAtIndex(partSettingsProp.arraySize - 1);
+                    partSetting.FindPropertyRelative("PartName").stringValue = part.Name;
+                    partSetting.FindPropertyRelative("BevelWidth").floatValue = -1f;
+                    partSetting.FindPropertyRelative("Smoothness").floatValue = -1f;
+                    partSettingsDict[part.Name] = partSetting;
+                }
+
+                EditorGUI.indentLevel++;
+                DrawPartSettings(partSetting);
+                EditorGUI.indentLevel--;
+            }
+        }
+
+        private void DrawPartSettings(SerializedProperty partSetting)
+        {
+            var defaultBevelWidth = _defaultBevelWidth.floatValue;
+            var defaultSmoothness = _defaultSmoothness.floatValue;
+
+            var bevelProp = partSetting.FindPropertyRelative("BevelWidth");
+            var smoothProp = partSetting.FindPropertyRelative("Smoothness");
+
+            DrawOverrideFloat("Bevel Width", bevelProp, defaultBevelWidth);
+            DrawOverrideSlider("Smoothness", smoothProp, defaultSmoothness, 0f, 1f);
+        }
+
+        private void DrawOverrideFloat(string label, SerializedProperty prop, float defaultValue)
+        {
+            var currentValue = prop.floatValue;
+            var hasOverride = currentValue >= 0f;
+
+            EditorGUILayout.BeginHorizontal();
+
+            EditorGUI.BeginChangeCheck();
+            var newHasOverride = EditorGUILayout.Toggle($"Override {label}", hasOverride, GUILayout.ExpandWidth(false));
+            if (EditorGUI.EndChangeCheck())
+            {
+                prop.floatValue = newHasOverride ? defaultValue : -1f;
+                hasOverride = newHasOverride;
+            }
+
+            if (hasOverride)
+            {
+                EditorGUI.BeginChangeCheck();
+                var newValue = EditorGUILayout.FloatField(prop.floatValue, GUILayout.Width(80));
+                if (EditorGUI.EndChangeCheck() && newValue >= 0f)
+                    prop.floatValue = newValue;
+            }
+            else
+            {
+                EditorGUI.BeginDisabledGroup(true);
+                EditorGUILayout.FloatField(defaultValue, GUILayout.Width(80));
+                EditorGUI.EndDisabledGroup();
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawOverrideSlider(string label, SerializedProperty prop, float defaultValue, float min, float max)
+        {
+            var currentValue = prop.floatValue;
+            var hasOverride = currentValue >= 0f;
+
+            EditorGUILayout.BeginHorizontal();
+
+            EditorGUI.BeginChangeCheck();
+            var newHasOverride = EditorGUILayout.Toggle($"Override {label}", hasOverride, GUILayout.ExpandWidth(false));
+            if (EditorGUI.EndChangeCheck())
+            {
+                prop.floatValue = newHasOverride ? defaultValue : -1f;
+                hasOverride = newHasOverride;
+            }
+
+            if (hasOverride)
+            {
+                EditorGUI.BeginChangeCheck();
+                var newValue = EditorGUILayout.Slider(prop.floatValue, min, max, GUILayout.Width(150));
+                if (EditorGUI.EndChangeCheck())
+                    prop.floatValue = newValue;
+            }
+            else
+            {
+                EditorGUI.BeginDisabledGroup(true);
+                EditorGUILayout.Slider(defaultValue, min, max, GUILayout.Width(150));
+                EditorGUI.EndDisabledGroup();
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
         }
     }
 }

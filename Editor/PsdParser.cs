@@ -47,12 +47,12 @@ namespace FireAnimation
 
             // Check if this node is an animation (has texture children)
             var hasTextureChildren = node.Children.Any(child =>
-                child.IsGroup && GetTextureType(child.Color) != TextureType.Unknown);
+                child.IsGroup && TextureTypeHelper.GetTextureType(child.Color) != TextureType.Unknown);
 
             if (hasTextureChildren)
             {
                 var animation = ProcessAnimationNode(node, psdFileName);
-                if (animation != null && animation.Textures.Count > 0)
+                if (animation != null && animation.Parts.Count > 0)
                 {
                     var groupColor = node.Color;
                     if (!animationsByColor.TryGetValue(groupColor, out var list))
@@ -74,39 +74,62 @@ namespace FireAnimation
         private SpriteAnimation ProcessAnimationNode(LayerNode node, string psdFileName)
         {
             var animationName = BuildAnimationName(psdFileName, node);
-            var texturesByType = new Dictionary<TextureType, AnimationTexture>();
+            var framesByType = new Dictionary<TextureType, List<AnimationFrame>>();
+            var parts = new List<SpritePart>();
 
             foreach (var child in node.Children)
             {
                 if (!child.IsGroup)
                     continue;
 
-                var textureType = GetTextureType(child.Color);
+                var textureType = TextureTypeHelper.GetTextureType(child.Color);
                 if (textureType == TextureType.Unknown)
                     continue;
 
-                // Get or create the texture for this type
-                if (!texturesByType.TryGetValue(textureType, out var texture))
+                // Get or create frame list for this type
+                if (!framesByType.TryGetValue(textureType, out var frames))
                 {
-                    texture = new AnimationTexture
-                    {
-                        Type = textureType,
-                        Frames = new List<AnimationFrame>()
-                    };
-                    texturesByType[textureType] = texture;
+                    frames = new List<AnimationFrame>();
+                    framesByType[textureType] = frames;
                 }
 
-                // Process this node's frames and merge into the texture
-                ProcessTextureNodeGroup(texture, child);
+                // Collect frames into the shared list for this type
+                CollectFrames(frames, child);
+
+                // For Albedo layers, also create a SpritePart
+                if (textureType == TextureType.Albedo)
+                {
+                    var part = new SpritePart
+                    {
+                        Name = child.Name,
+                        Frames = new List<AnimationFrame>()
+                    };
+                    CollectFrames(part.Frames, child);
+                    if (part.Frames.Count > 0)
+                        parts.Add(part);
+                }
             }
 
-            var animation = new SpriteAnimation
+            // Build textures from collected frames
+            var textures = new List<AnimationTexture>();
+            foreach (var kvp in framesByType)
+            {
+                if (kvp.Value.Count == 0)
+                    continue;
+
+                textures.Add(new AnimationTexture
+                {
+                    Type = kvp.Key,
+                    Frames = kvp.Value
+                });
+            }
+
+            return new SpriteAnimation
             {
                 Name = animationName,
-                Textures = texturesByType.Values.ToList()
+                Textures = textures,
+                Parts = parts
             };
-
-            return animation;
         }
 
         private string BuildAnimationName(string psdFileName, LayerNode node)
@@ -134,19 +157,23 @@ namespace FireAnimation
                 foreach (var animation in group.Animations)
                 {
                     foreach (var texture in animation.Textures)
-                    {
-                        foreach (var frame in texture.Frames)
-                        {
-                            frame.BitmapLayers = new List<BitmapLayer>();
-                            foreach (var layerId in frame.LayerIDs)
-                            {
-                                if (layerLookup.TryGetValue(layerId, out var bitmapLayer))
-                                {
-                                    frame.BitmapLayers.Add(bitmapLayer);
-                                }
-                            }
-                        }
-                    }
+                        ResolveFrames(texture.Frames, layerLookup);
+
+                    foreach (var part in animation.Parts)
+                        ResolveFrames(part.Frames, layerLookup);
+                }
+            }
+        }
+
+        private void ResolveFrames(List<AnimationFrame> frames, Dictionary<int, BitmapLayer> layerLookup)
+        {
+            foreach (var frame in frames)
+            {
+                frame.BitmapLayers = new List<BitmapLayer>();
+                foreach (var layerId in frame.LayerIDs)
+                {
+                    if (layerLookup.TryGetValue(layerId, out var bitmapLayer))
+                        frame.BitmapLayers.Add(bitmapLayer);
                 }
             }
         }
@@ -157,13 +184,15 @@ namespace FireAnimation
             {
                 lookup[layer.LayerID] = layer;
                 if (layer.ChildLayer != null)
-                {
                     BuildLayerLookup(layer.ChildLayer, lookup);
-                }
             }
         }
 
-        private void ProcessTextureNodeGroup(AnimationTexture texture, LayerNode node)
+        /// <summary>
+        /// Collect frames from a layer node into the provided list.
+        /// Handles nested groups by recursing until frame groups are found.
+        /// </summary>
+        private void CollectFrames(List<AnimationFrame> frames, LayerNode node)
         {
             if (node.Color == LayerColor.Red)
                 return;
@@ -174,41 +203,25 @@ namespace FireAnimation
             if (!IsFrameGroup(node))
             {
                 foreach (var child in node.Children)
-                    ProcessTextureNodeGroup(texture, child);
+                    CollectFrames(frames, child);
                 return;
             }
 
-            while (texture.Frames.Count < node.Children.Count)
-            {
-                texture.Frames.Add(new AnimationFrame
-                {
-                    LayerIDs = new List<int>()
-                });
-            }
+            // Ensure we have enough frames
+            while (frames.Count < node.Children.Count)
+                frames.Add(new AnimationFrame { LayerIDs = new List<int>() });
 
+            // Add layer IDs to each frame (reversed order to match PSD convention)
             for (var i = 0; i < node.Children.Count; i++)
             {
                 var reversedIndex = node.Children.Count - 1 - i;
-                texture.Frames[i].LayerIDs.Add(node.Children[reversedIndex].LayerId);
+                frames[i].LayerIDs.Add(node.Children[reversedIndex].LayerId);
             }
         }
 
         private bool IsFrameGroup(LayerNode node)
         {
-            if (!node.IsGroup)
-                return false;
-
-            return node.Children.All(child => !child.IsGroup);
-        }
-
-        private TextureType GetTextureType(LayerColor color)
-        {
-            return color switch
-            {
-                LayerColor.Gray => TextureType.Albedo,
-                LayerColor.Indigo => TextureType.LightingRegion,
-                _ => TextureType.Unknown
-            };
+            return node.IsGroup && node.Children.All(child => !child.IsGroup);
         }
 
         private List<LayerNode> BuildLayerTree(List<PhotoshopFile.Layer> layers)
