@@ -24,6 +24,7 @@ namespace FireAnimation
 
         [SerializeField] internal ImportMetadata Metadata;
         [SerializeField] private List<AnimationSettings> _animationSettings = new List<AnimationSettings>();
+        [SerializeField] private List<GroupPartSettings> _groupPartSettings = new List<GroupPartSettings>();
 
         public override void OnImportAsset(AssetImportContext ctx)
         {
@@ -48,6 +49,7 @@ namespace FireAnimation
                 Metadata.Groups = groups;
 
                 InitializeAnimationSettings(groups);
+                InitializeGroupPartSettings(groups);
                 GenerateAssets(ctx, groups, document.width, document.height);
             }
             catch (Exception e)
@@ -97,7 +99,7 @@ namespace FireAnimation
 
             foreach (var animation in group.Animations)
             {
-                var animData = GenerateAnimationAssets(ctx, animation, documentWidth, documentHeight);
+                var animData = GenerateAnimationAssets(ctx, group.Name, animation, documentWidth, documentHeight);
                 if (animData != null)
                     animationDataList.Add(animData);
             }
@@ -115,6 +117,7 @@ namespace FireAnimation
 
         private FireAnimationAsset.AnimationData GenerateAnimationAssets(
             AssetImportContext ctx,
+            string groupName,
             SpriteAnimation animation,
             int documentWidth,
             int documentHeight)
@@ -191,7 +194,7 @@ namespace FireAnimation
                 }
             }
 
-            var normalAtlas = GenerateNormalAtlas(ctx, animation, dimensions, documentWidth, documentHeight);
+            var normalAtlas = GenerateNormalAtlas(ctx, groupName, animation, dimensions, documentWidth, documentHeight);
 
             if (normalAtlas != null)
             {
@@ -284,13 +287,10 @@ namespace FireAnimation
                         {
                             AnimationName = animation.Name,
                             FramesPerSecond = -1f,
-                            LoopTime = true,
-                            PartSettings = new List<SpritePartSettings>()
+                            LoopTime = true
                         };
                     }
 
-                    // Ensure part settings are initialized for all parts
-                    InitializePartSettings(settings, animation.Parts);
                     newSettings.Add(settings);
                 }
             }
@@ -298,56 +298,104 @@ namespace FireAnimation
             _animationSettings = newSettings;
         }
 
-        private void InitializePartSettings(AnimationSettings settings, List<SpritePart> parts)
+        private void InitializeGroupPartSettings(List<GameObjectGroup> groups)
         {
-            settings.PartSettings ??= new List<SpritePartSettings>();
-
-            var existingPartSettings = new Dictionary<string, SpritePartSettings>();
-            foreach (var partSetting in settings.PartSettings)
+            var existingGroupSettings = new Dictionary<string, GroupPartSettings>();
+            foreach (var groupSetting in _groupPartSettings)
             {
-                if (!string.IsNullOrEmpty(partSetting.PartName))
-                    existingPartSettings[partSetting.PartName] = partSetting;
+                if (!string.IsNullOrEmpty(groupSetting.GroupName))
+                    existingGroupSettings[groupSetting.GroupName] = groupSetting;
             }
 
-            var newPartSettings = new List<SpritePartSettings>();
-            foreach (var part in parts)
+            var newGroupSettings = new List<GroupPartSettings>();
+            foreach (var group in groups)
             {
-                if (existingPartSettings.TryGetValue(part.Name, out var existing))
+                GroupPartSettings groupSettings;
+                if (existingGroupSettings.TryGetValue(group.Name, out var existing))
                 {
-                    newPartSettings.Add(existing);
+                    groupSettings = existing;
                 }
                 else
                 {
-                    newPartSettings.Add(new SpritePartSettings
+                    groupSettings = new GroupPartSettings
                     {
-                        PartName = part.Name,
-                        BevelWidth = -1f,
-                        Smoothness = -1f
-                    });
+                        GroupName = group.Name,
+                        PartSettings = new List<SpritePartSettings>()
+                    };
+                }
+
+                // Collect all unique part names across all animations in this group
+                var uniquePartNames = new HashSet<string>();
+                foreach (var animation in group.Animations)
+                {
+                    foreach (var part in animation.Parts)
+                    {
+                        uniquePartNames.Add(part.Name);
+                    }
+                }
+
+                // Initialize part settings for all unique parts
+                var existingPartSettings = new Dictionary<string, SpritePartSettings>();
+                if (groupSettings.PartSettings != null)
+                {
+                    foreach (var ps in groupSettings.PartSettings)
+                    {
+                        if (!string.IsNullOrEmpty(ps.PartName))
+                            existingPartSettings[ps.PartName] = ps;
+                    }
+                }
+
+                var newPartSettings = new List<SpritePartSettings>();
+                foreach (var partName in uniquePartNames)
+                {
+                    if (existingPartSettings.TryGetValue(partName, out var existingPart))
+                    {
+                        newPartSettings.Add(existingPart);
+                    }
+                    else
+                    {
+                        newPartSettings.Add(new SpritePartSettings
+                        {
+                            PartName = partName,
+                            BevelWidth = -1f,
+                            Smoothness = -1f
+                        });
+                    }
+                }
+
+                groupSettings.PartSettings = newPartSettings;
+                newGroupSettings.Add(groupSettings);
+            }
+
+            _groupPartSettings = newGroupSettings;
+        }
+
+        private Dictionary<string, SpritePartSettings> GetPartSettingsForGroup(string groupName)
+        {
+            var dict = new Dictionary<string, SpritePartSettings>();
+            var groupSettings = _groupPartSettings.FirstOrDefault(g => g.GroupName == groupName);
+            if (groupSettings?.PartSettings != null)
+            {
+                foreach (var ps in groupSettings.PartSettings)
+                {
+                    if (!string.IsNullOrEmpty(ps.PartName))
+                        dict[ps.PartName] = ps;
                 }
             }
 
-            settings.PartSettings = newPartSettings;
+            return dict;
         }
 
         private Texture2D GenerateNormalAtlas(
             AssetImportContext ctx,
+            string groupName,
             SpriteAnimation animation,
             UnifiedDimensions dimensions,
             int documentWidth,
             int documentHeight)
         {
-            // Build part settings dictionary
-            var animSettings = _animationSettings.FirstOrDefault(s => s.AnimationName == animation.Name);
-            var partSettingsDict = new Dictionary<string, SpritePartSettings>();
-            if (animSettings?.PartSettings != null)
-            {
-                foreach (var ps in animSettings.PartSettings)
-                {
-                    if (!string.IsNullOrEmpty(ps.PartName))
-                        partSettingsDict[ps.PartName] = ps;
-                }
-            }
+            // Get part settings from group-level settings
+            var partSettingsDict = GetPartSettingsForGroup(groupName);
 
             var settings = new NormalAtlasGenerator.NormalAtlasSettings
             {

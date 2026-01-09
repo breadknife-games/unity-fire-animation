@@ -90,6 +90,15 @@ namespace FireAnimation
         public string AnimationName;
         public float FramesPerSecond = -1f;
         public bool LoopTime = true;
+    }
+
+    /// <summary>
+    /// Part settings for an entire group. Parts with the same name share settings.
+    /// </summary>
+    [Serializable]
+    public class GroupPartSettings
+    {
+        public string GroupName;
         public List<SpritePartSettings> PartSettings = new List<SpritePartSettings>();
     }
 }
