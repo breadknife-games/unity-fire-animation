@@ -73,7 +73,7 @@ namespace FireAnimation.NormalGeneration
             for (var i = 0; i < result.Length; i++)
                 result[i] = flatNormal;
 
-            // Copy region normals to correct positions
+            // Copy region normals to correct positions, excluding pixels within edgeInset of the edge
             for (var localY = 0; localY < region.Height; localY++)
             {
                 for (var localX = 0; localX < region.Width; localX++)
@@ -81,6 +81,10 @@ namespace FireAnimation.NormalGeneration
                     var localIndex = localY * region.Width + localX;
 
                     if (!region.RegionMask[localIndex])
+                        continue;
+
+                    // Skip pixels within edgeInset distance of the edge (makes parts smaller)
+                    if (region.DistanceField != null && region.DistanceField[localIndex] < edgeInset)
                         continue;
 
                     var globalX = region.Bounds.x + localX;
